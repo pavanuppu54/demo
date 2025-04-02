@@ -1,0 +1,48 @@
+You're right! The NullPointerException could occur because blr.findOne(blp.equalsCode(bl.getCode())).orElse(null) can return null, and then calling parent.setName(bl.getName()) would throw an exception.
+
+Solution Approaches
+
+1. Use Optional Properly
+
+Instead of using orElse(null), handle the absence of parent safely:
+
+blr.findOne(blp.equalsCode(bl.getCode()))
+    .ifPresent(parent -> {
+        parent.setName(bl.getName());
+        parent.setActive(bl.isActive());
+    });
+
+This ensures that setName and setActive are called only if parent is present.
+
+
+---
+
+2. Use Null Check Before Setting Values
+
+If you still want to use orElse(null), perform a null check before calling methods:
+
+BLB parent = blr.findOne(blp.equalsCode(bl.getCode())).orElse(null);
+if (parent != null) {
+    parent.setName(bl.getName());
+    parent.setActive(bl.isActive());
+}
+
+This avoids the NullPointerException.
+
+
+---
+
+3. Throw a Custom Exception if Parent is Required
+
+If parent should never be null, throw an exception instead of handling it silently:
+
+BLB parent = blr.findOne(blp.equalsCode(bl.getCode()))
+    .orElseThrow(() -> new EntityNotFoundException("BLB not found for code: " + bl.getCode()));
+
+parent.setName(bl.getName());
+parent.setActive(bl.isActive());
+
+This makes debugging easier if parent is unexpectedly missing.
+
+Which approach fits your use case best?
+
