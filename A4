@@ -1,0 +1,108 @@
+Thanks for the details! You’ve already written correct HTML in app.component.html, so the error:
+
+> 'router-outlet' is not a known element
+
+
+
+just means Angular doesn't know what router-outlet is, because you forgot to import AppRoutingModule in your AppModule.
+
+Let’s fix this step-by-step.
+
+
+---
+
+✅ Final Fix Step-by-Step
+
+1. Check your app.module.ts
+
+Open src/app/app.module.ts and make sure the content looks exactly like this:
+
+import { NgModule } from '@angular/core';
+import { BrowserModule } from '@angular/platform-browser';
+import { ReactiveFormsModule } from '@angular/forms';
+import { HttpClientModule } from '@angular/common/http';
+
+import { AppComponent } from './app.component';
+import { EmployeeListComponent } from './employee/employee-list/employee-list.component';
+import { EmployeeFormComponent } from './employee/employee-form/employee-form.component';
+import { AppRoutingModule } from './app-routing.module'; // <-- This is CRUCIAL
+
+@NgModule({
+  declarations: [
+    AppComponent,
+    EmployeeListComponent,
+    EmployeeFormComponent
+  ],
+  imports: [
+    BrowserModule,
+    ReactiveFormsModule,
+    HttpClientModule,
+    AppRoutingModule // <-- This fixes the <router-outlet> error
+  ],
+  providers: [],
+  bootstrap: [AppComponent]
+})
+export class AppModule {}
+
+
+---
+
+2. Make sure app-routing.module.ts exists
+
+Create a file called src/app/app-routing.module.ts if it doesn't already exist:
+
+import { NgModule } from '@angular/core';
+import { RouterModule, Routes } from '@angular/router';
+import { EmployeeListComponent } from './employee/employee-list/employee-list.component';
+import { EmployeeFormComponent } from './employee/employee-form/employee-form.component';
+
+const routes: Routes = [
+  { path: '', component: EmployeeListComponent },
+  { path: 'add', component: EmployeeFormComponent },
+  { path: 'edit/:id', component: EmployeeFormComponent }
+];
+
+@NgModule({
+  imports: [RouterModule.forRoot(routes)],
+  exports: [RouterModule]
+})
+export class AppRoutingModule {}
+
+
+---
+
+3. Restart your app
+
+In your terminal, stop the Angular app (press Ctrl + C), then run:
+
+ng serve
+
+
+---
+
+4. Confirm success
+
+Now go to http://localhost:4200/
+
+You should see:
+
+Title at the top
+
+Navigation links
+
+A list or form loaded inside the <router-outlet>
+
+
+
+---
+
+If you still face errors, send me your current:
+
+app.module.ts
+
+app-routing.module.ts
+
+Terminal errors
+
+
+And I’ll help you line by line. Want me to send you a working example project structure too?
