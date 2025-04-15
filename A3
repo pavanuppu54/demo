@@ -1,0 +1,87 @@
+The error you're getting:
+
+> NG8001: 'router-outlet' is not a known element
+
+
+
+means Angular doesn't recognize <router-outlet> in your AppComponent.
+
+
+---
+
+✅ Solution (Step-by-Step Fix)
+
+You likely forgot to import the AppRoutingModule into your AppModule.
+
+
+---
+
+Step 1: Fix app.module.ts
+
+Please make sure this file looks like this:
+
+import { NgModule } from '@angular/core';
+import { BrowserModule } from '@angular/platform-browser';
+import { ReactiveFormsModule } from '@angular/forms';
+import { HttpClientModule } from '@angular/common/http';
+
+import { AppRoutingModule } from './app-routing.module'; // << important!
+import { AppComponent } from './app.component';
+import { EmployeeListComponent } from './employee/employee-list/employee-list.component';
+import { EmployeeFormComponent } from './employee/employee-form/employee-form.component';
+
+@NgModule({
+  declarations: [
+    AppComponent,
+    EmployeeListComponent,
+    EmployeeFormComponent
+  ],
+  imports: [
+    BrowserModule,
+    ReactiveFormsModule,
+    HttpClientModule,
+    AppRoutingModule // << important!
+  ],
+  providers: [],
+  bootstrap: [AppComponent]
+})
+export class AppModule {}
+
+
+---
+
+Step 2: Make sure app-routing.module.ts exists
+
+File: src/app/app-routing.module.ts
+
+import { NgModule } from '@angular/core';
+import { RouterModule, Routes } from '@angular/router';
+import { EmployeeListComponent } from './employee/employee-list/employee-list.component';
+import { EmployeeFormComponent } from './employee/employee-form/employee-form.component';
+
+const routes: Routes = [
+  { path: '', component: EmployeeListComponent },
+  { path: 'add', component: EmployeeFormComponent },
+  { path: 'edit/:id', component: EmployeeFormComponent }
+];
+
+@NgModule({
+  imports: [RouterModule.forRoot(routes)],
+  exports: [RouterModule]
+})
+export class AppRoutingModule {}
+
+
+---
+
+Step 3: Restart Angular
+
+Run this in terminal:
+
+ng serve
+
+
+---
+
+Let me know if you still face errors. I’ll help you fix each one!
+
