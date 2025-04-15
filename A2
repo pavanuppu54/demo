@@ -1,0 +1,551 @@
+Thanks for sharing the error. From what you've pasted, you're facing Angular template binding issues, missing module imports, and router-outlet/component recognition issues. Let’s fix everything step-by-step. I’ll also explain why it happens.
+
+
+---
+
+✅ FIRST, WHAT’S GOING WRONG?
+
+1. router-outlet is not a known element
+
+> This means Angular doesn't know what <router-outlet> is.
+
+
+
+Cause: You didn’t import the RouterModule in AppModule.
+
+
+---
+
+2. Can't bind to 'formGroup'
+
+> Angular doesn’t recognize [formGroup] in your HTML.
+
+
+
+Cause: You didn’t import ReactiveFormsModule in your AppModule.
+
+
+---
+
+3. ngFor not working in *ngFor
+
+> Angular doesn’t recognize *ngFor.
+
+
+
+Cause: You didn’t import CommonModule OR forgot to declare components correctly.
+
+
+---
+
+4. Invalid imports in @Component()
+
+> Your AppComponent is importing components inside the decorator which is not valid syntax.
+
+
+
+
+---
+
+✅ LET’S FIX THIS STEP-BY-STEP
+
+Step 1: Fix app.component.ts
+
+> You should not add imports inside @Component() decorator. That's wrong. Remove it.
+
+
+
+Your old (wrong) code:
+
+@Component({
+  selector: 'app-root',
+  imports: [EmployeeListComponent, EmployeeFormComponent], // ❌ WRONG
+  templateUrl: './app.component.html',
+  styleUrls: ['./app.component.css']
+})
+
+Corrected version:
+
+@Component({
+  selector: 'app-root',
+  templateUrl: './app.component.html',
+  styleUrls: ['./app.component.css']
+})
+export class AppComponent {
+  title = 'crud-frontend';
+}
+
+
+---
+
+Step 2: Fix app.component.html
+
+Make sure this file has just:
+
+<h1>{{ title }}</h1>
+<router-outlet></router-outlet>
+
+
+---
+
+Step 3: Fix AppModule
+
+Open: src/app/app.module.ts
+
+Make sure you import the following modules:
+
+import { NgModule } from '@angular/core';
+import { BrowserModule } from '@angular/platform-browser';
+import { ReactiveFormsModule } from '@angular/forms';
+import { HttpClientModule } from '@angular/common/http';
+import { AppRoutingModule } from './app-routing.module';
+
+import { AppComponent } from './app.component';
+import { EmployeeListComponent } from './employee/employee-list/employee-list.component';
+import { EmployeeFormComponent } from './employee/employee-form/employee-form.component';
+
+@NgModule({
+  declarations: [
+    AppComponent,
+    EmployeeListComponent,
+    EmployeeFormComponent
+  ],
+  imports: [
+    BrowserModule,
+    AppRoutingModule,
+    ReactiveFormsModule,
+    HttpClientModule
+  ],
+  providers: [],
+  bootstrap: [AppComponent]
+})
+export class AppModule { }
+
+✅ Explanation:
+
+BrowserModule: Required for running in a browser.
+
+AppRoutingModule: Handles navigation and <router-outlet>.
+
+ReactiveFormsModule: Required to use [formGroup] and FormBuilder.
+
+HttpClientModule: Required for HTTP API calls.
+
+
+
+---
+
+Step 4: Fix app-routing.module.ts
+
+Ensure it looks like this:
+
+import { NgModule } from '@angular/core';
+import { RouterModule, Routes } from '@angular/router';
+import { EmployeeListComponent } from './employee/employee-list/employee-list.component';
+import { EmployeeFormComponent } from './employee/employee-form/employee-form.component';
+
+const routes: Routes = [
+  { path: '', component: EmployeeListComponent },
+  { path: 'add', component: EmployeeFormComponent },
+  { path: 'edit/:id', component: EmployeeFormComponent }
+];
+
+@NgModule({
+  imports: [RouterModule.forRoot(routes)],
+  exports: [RouterModule]
+})
+export class AppRoutingModule {}
+
+
+---
+
+Step 5: Check employee-form.component.html
+
+Check this:
+
+<form [formGroup]="employeeForm" (ngSubmit)="onSubmit()">
+  <label>Name:</label>
+  <input formControlName="name"><br>
+
+  <label>Email:</label>
+  <input formControlName="email"><br>
+
+  <label>Designation:</label>
+  <input formControlName="designation"><br>
+
+  <label>Salary:</label>
+  <input formControlName="salary"><br>
+
+  <button type="submit">{{ isEditMode ? 'Update' : 'Create' }}</button>
+</form>
+
+Make sure:
+
+It uses formGroup not formsiroup
+
+You have imported ReactiveFormsModule in AppModule
+
+
+
+---
+
+✅ FINAL STEP: RESTART
+
+After making all these changes, stop and restart your app:
+
+CTRL + C   // to stop if already running
+ng serve
+
+
+---
+
+Want me to send you the fixed and clean Angular project as a zip?
+
+Or would you like me to generate the complete source structure again with Bootstrap styling?
+
+Let me know how you'd like to continue!
+
+
+
+
+Great! Let’s build a complete and clean Angular frontend project for your Spring Boot CRUD operations on Employee.
+
+
+---
+
+✅ 1. Project Structure (For Understanding)
+
+crud-frontend/
+│
+├── src/
+│   ├── app/
+│   │   ├── employee/
+│   │   │   ├── employee-list/
+│   │   │   │   └── employee-list.component.ts/html/css
+│   │   │   ├── employee-form/
+│   │   │   │   └── employee-form.component.ts/html/css
+│   │   │   └── employee.service.ts
+│   │   ├── app.component.ts/html/css
+│   │   ├── app.module.ts
+│   │   └── app-routing.module.ts
+│   └── index.html
+├── angular.json
+└── package.json
+
+
+---
+
+✅ 2. Code Files
+
+app.module.ts
+
+import { NgModule } from '@angular/core';
+import { BrowserModule } from '@angular/platform-browser';
+import { ReactiveFormsModule } from '@angular/forms';
+import { HttpClientModule } from '@angular/common/http';
+
+import { AppRoutingModule } from './app-routing.module';
+import { AppComponent } from './app.component';
+import { EmployeeListComponent } from './employee/employee-list/employee-list.component';
+import { EmployeeFormComponent } from './employee/employee-form/employee-form.component';
+
+@NgModule({
+  declarations: [
+    AppComponent,
+    EmployeeListComponent,
+    EmployeeFormComponent
+  ],
+  imports: [
+    BrowserModule,
+    AppRoutingModule,
+    ReactiveFormsModule,
+    HttpClientModule
+  ],
+  providers: [],
+  bootstrap: [AppComponent]
+})
+export class AppModule { }
+
+
+---
+
+app-routing.module.ts
+
+import { NgModule } from '@angular/core';
+import { RouterModule, Routes } from '@angular/router';
+import { EmployeeListComponent } from './employee/employee-list/employee-list.component';
+import { EmployeeFormComponent } from './employee/employee-form/employee-form.component';
+
+const routes: Routes = [
+  { path: '', component: EmployeeListComponent },
+  { path: 'add', component: EmployeeFormComponent },
+  { path: 'edit/:id', component: EmployeeFormComponent }
+];
+
+@NgModule({
+  imports: [RouterModule.forRoot(routes)],
+  exports: [RouterModule]
+})
+export class AppRoutingModule {}
+
+
+---
+
+app.component.ts
+
+import { Component } from '@angular/core';
+
+@Component({
+  selector: 'app-root',
+  templateUrl: './app.component.html',
+  styleUrls: ['./app.component.css']
+})
+export class AppComponent {
+  title = 'crud-frontend';
+}
+
+
+---
+
+app.component.html
+
+<h2>{{ title }}</h2>
+<nav>
+  <a routerLink="/">Employee List</a> |
+  <a routerLink="/add">Add Employee</a>
+</nav>
+<hr />
+<router-outlet></router-outlet>
+
+
+---
+
+employee.service.ts
+
+import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+
+export interface Employee {
+  id?: number;
+  name: string;
+  email: string;
+  designation: string;
+  salary: number;
+}
+
+@Injectable({ providedIn: 'root' })
+export class EmployeeService {
+  private baseUrl = 'http://localhost:8080/api/employees';
+
+  constructor(private http: HttpClient) {}
+
+  getAll(): Observable<Employee[]> {
+    return this.http.get<Employee[]>(this.baseUrl);
+  }
+
+  getById(id: number): Observable<Employee> {
+    return this.http.get<Employee>(`${this.baseUrl}/${id}`);
+  }
+
+  create(emp: Employee): Observable<Employee> {
+    return this.http.post<Employee>(this.baseUrl, emp);
+  }
+
+  update(id: number, emp: Employee): Observable<Employee> {
+    return this.http.put<Employee>(`${this.baseUrl}/${id}`, emp);
+  }
+
+  delete(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.baseUrl}/${id}`);
+  }
+}
+
+
+---
+
+employee-list.component.ts
+
+import { Component, OnInit } from '@angular/core';
+import { EmployeeService, Employee } from '../employee.service';
+import { Router } from '@angular/router';
+
+@Component({
+  selector: 'app-employee-list',
+  templateUrl: './employee-list.component.html',
+  styleUrls: ['./employee-list.component.css']
+})
+export class EmployeeListComponent implements OnInit {
+  employees: Employee[] = [];
+
+  constructor(private service: EmployeeService, private router: Router) {}
+
+  ngOnInit(): void {
+    this.fetchEmployees();
+  }
+
+  fetchEmployees() {
+    this.service.getAll().subscribe(data => this.employees = data);
+  }
+
+  edit(id: number) {
+    this.router.navigate(['/edit', id]);
+  }
+
+  delete(id: number) {
+    if (confirm('Are you sure?')) {
+      this.service.delete(id).subscribe(() => this.fetchEmployees());
+    }
+  }
+}
+
+
+---
+
+employee-list.component.html
+
+<h3>Employee List</h3>
+<table border="1" cellpadding="5">
+  <tr>
+    <th>ID</th><th>Name</th><th>Email</th><th>Designation</th><th>Salary</th><th>Actions</th>
+  </tr>
+  <tr *ngFor="let emp of employees">
+    <td>{{ emp.id }}</td>
+    <td>{{ emp.name }}</td>
+    <td>{{ emp.email }}</td>
+    <td>{{ emp.designation }}</td>
+    <td>{{ emp.salary }}</td>
+    <td>
+      <button (click)="edit(emp.id!)">Edit</button>
+      <button (click)="delete(emp.id!)">Delete</button>
+    </td>
+  </tr>
+</table>
+
+
+---
+
+employee-form.component.ts
+
+import { Component, OnInit } from '@angular/core';
+import { FormBuilder, FormGroup } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
+import { EmployeeService, Employee } from '../employee.service';
+
+@Component({
+  selector: 'app-employee-form',
+  templateUrl: './employee-form.component.html',
+  styleUrls: ['./employee-form.component.css']
+})
+export class EmployeeFormComponent implements OnInit {
+  employeeForm!: FormGroup;
+  id!: number;
+  isEditMode = false;
+
+  constructor(
+    private fb: FormBuilder,
+    private service: EmployeeService,
+    private route: ActivatedRoute,
+    private router: Router
+  ) {}
+
+  ngOnInit(): void {
+    this.employeeForm = this.fb.group({
+      name: [''],
+      email: [''],
+      designation: [''],
+      salary: ['']
+    });
+
+    this.id = +this.route.snapshot.paramMap.get('id')!;
+    this.isEditMode = !!this.id;
+
+    if (this.isEditMode) {
+      this.service.getById(this.id).subscribe(emp =>
+        this.employeeForm.patchValue(emp)
+      );
+    }
+  }
+
+  onSubmit() {
+    if (this.isEditMode) {
+      this.service.update(this.id, this.employeeForm.value).subscribe(() =>
+        this.router.navigate(['/'])
+      );
+    } else {
+      this.service.create(this.employeeForm.value).subscribe(() =>
+        this.router.navigate(['/'])
+      );
+    }
+  }
+}
+
+
+---
+
+employee-form.component.html
+
+<h3>{{ isEditMode ? 'Edit' : 'Add' }} Employee</h3>
+<form [formGroup]="employeeForm" (ngSubmit)="onSubmit()">
+  <label>Name:</label>
+  <input formControlName="name"><br>
+
+  <label>Email:</label>
+  <input formControlName="email"><br>
+
+  <label>Designation:</label>
+  <input formControlName="designation"><br>
+
+  <label>Salary:</label>
+  <input formControlName="salary" type="number"><br><br>
+
+  <button type="submit">{{ isEditMode ? 'Update' : 'Create' }}</button>
+</form>
+
+
+---
+
+✅ Next Step for You
+
+1. Create folder structure manually if not created:
+
+mkdir -p src/app/employee/employee-list
+mkdir -p src/app/employee/employee-form
+
+
+2. Create the components:
+
+ng generate component employee/employee-list
+ng generate component employee/employee-form
+
+
+3. Create the service:
+
+ng generate service employee/employee
+
+
+4. Paste the code provided above in appropriate files.
+
+
+5. Run the Angular app:
+
+ng serve
+
+
+
+
+---
+
+Let me know if you want:
+
+Bootstrap added
+
+Zip file of the entire frontend project
+
+Integration testing for APIs
+
+Full walkthrough with visuals
+
+
+I’m here to help you till it works perfectly!
+
