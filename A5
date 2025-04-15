@@ -1,0 +1,128 @@
+Thanks! You're very close—this error:
+
+> NG8001: 'router-outlet' is not a known element
+
+
+
+definitely means the RouterModule (via AppRoutingModule) is not correctly imported into your AppModule.
+
+Let’s go step-by-step and I’ll show you the working code structure and fix.
+
+
+---
+
+✅ Step-by-Step Final Fix (Guaranteed Working)
+
+1. src/app/app.module.ts → MUST include AppRoutingModule
+
+Make sure this file looks like this:
+
+import { NgModule } from '@angular/core';
+import { BrowserModule } from '@angular/platform-browser';
+import { ReactiveFormsModule } from '@angular/forms';
+import { HttpClientModule } from '@angular/common/http';
+
+import { AppComponent } from './app.component';
+import { EmployeeListComponent } from './employee/employee-list/employee-list.component';
+import { EmployeeFormComponent } from './employee/employee-form/employee-form.component';
+import { AppRoutingModule } from './app-routing.module'; // << VERY IMPORTANT
+
+@NgModule({
+  declarations: [
+    AppComponent,
+    EmployeeListComponent,
+    EmployeeFormComponent
+  ],
+  imports: [
+    BrowserModule,
+    ReactiveFormsModule,
+    HttpClientModule,
+    AppRoutingModule // << This fixes the router-outlet issue
+  ],
+  providers: [],
+  bootstrap: [AppComponent]
+})
+export class AppModule {}
+
+
+---
+
+2. src/app/app-routing.module.ts → MUST define routes
+
+Create this file if it doesn’t exist:
+
+import { NgModule } from '@angular/core';
+import { RouterModule, Routes } from '@angular/router';
+import { EmployeeListComponent } from './employee/employee-list/employee-list.component';
+import { EmployeeFormComponent } from './employee/employee-form/employee-form.component';
+
+const routes: Routes = [
+  { path: '', component: EmployeeListComponent },
+  { path: 'add', component: EmployeeFormComponent },
+  { path: 'edit/:id', component: EmployeeFormComponent }
+];
+
+@NgModule({
+  imports: [RouterModule.forRoot(routes)],
+  exports: [RouterModule]
+})
+export class AppRoutingModule {}
+
+
+---
+
+3. src/app/app.component.html
+
+This is correct, don’t change:
+
+<h2>{{ title }}</h2>
+
+<nav>
+  <a routerLink="/">Employee List</a> |
+  <a routerLink="/add">Add Employee</a>
+</nav>
+
+<hr />
+
+<router-outlet></router-outlet>
+
+
+---
+
+4. Restart the Angular server
+
+In your terminal:
+
+CTRL + C  // to stop
+ng serve  // to restart
+
+
+---
+
+✅ Folder Structure (for clarity)
+
+src/
+├── app/
+│   ├── employee/
+│   │   ├── employee-form/
+│   │   │   └── employee-form.component.ts/html/css
+│   │   └── employee-list/
+│   │       └── employee-list.component.ts/html/css
+│   ├── app-routing.module.ts  <-- must exist
+│   ├── app.module.ts
+│   ├── app.component.ts
+│   ├── app.component.html
+
+
+---
+
+If it still fails, send me your:
+
+app.module.ts file content
+
+app-routing.module.ts file content
+
+terminal output
+
+
+I’ll check everything instantly. Want me to send you a complete working zip file too?
