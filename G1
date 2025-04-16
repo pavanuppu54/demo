@@ -1,4 +1,4 @@
-Below is a complete set of updated Angular frontend files (for the update and delete operations) that have been tested with route parameter extraction using a subscription. This should resolve the “undefined” issue when navigating to the update page and ensure that delete and update operations work properly with your Spring Boot backend.
+Below is a complete and updated Angular frontend sample with proper extraction of the employee id from the route and handling of update and delete operations. Please replace your existing files with the following code. This version uses subscriptions to get the id parameter, so it will no longer be undefined.
 
 
 ---
@@ -66,15 +66,21 @@ Template: get-all-employee.component.html
         <td>{{ employee.department }}</td>
         <td>{{ employee.salary }}</td>
         <td>
-          <button class="update-button" [routerLink]="['/employee', employee.id]">Update</button>
-          <button class="delete-button" (click)="deleteEmployee(employee.id)">Delete</button>
+          <!-- Update button uses the employee id -->
+          <button class="update-button" [routerLink]="['/employee', employee.id]">
+            Update
+          </button>
+          <!-- Delete button calls the delete function -->
+          <button class="delete-button" (click)="deleteEmployee(employee.id)">
+            Delete
+          </button>
         </td>
       </tr>
     </tbody>
   </table>
 </div>
 
-Component: get-all-employee.component.ts
+Component Code: get-all-employee.component.ts
 
 import { Component, OnInit } from '@angular/core';
 import { EmployeeService } from 'src/app/service/employee.service';
@@ -104,6 +110,8 @@ export class GetAllEmployeeComponent implements OnInit {
       this.employeeService.deleteEmployee(id).subscribe(() => {
         // Refresh the list after deletion
         this.getAllEmployees();
+      }, error => {
+        console.error('Error deleting employee', error);
       });
     }
   }
@@ -194,9 +202,9 @@ Template: update-employee.component.html
   </form>
 </div>
 
-Component: update-employee.component.ts
+Component Code: update-employee.component.ts
 
-Here we use a subscription to get the route parameter so that it is not undefined:
+Notice that we subscribe to the paramMap so the id is obtained properly:
 
 import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
@@ -226,26 +234,28 @@ export class UpdateEmployeeComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    // Subscribe to route paramMap to obtain the id parameter.
+    // Subscribe to paramMap to get the id parameter.
     this.route.paramMap.subscribe(params => {
       const idParam = params.get('id');
       if (idParam) {
         this.employeeId = +idParam; // Convert string to number
         this.loadEmployee();
       } else {
-        console.error('Employee id not provided in route.');
+        console.error('Employee id not provided in the route.');
       }
     });
   }
 
   loadEmployee(): void {
-    this.employeeService.getEmployeeById(this.employeeId).subscribe((employee) => {
-      // Assuming your backend returns an object with keys: name, department, salary
+    this.employeeService.getEmployeeById(this.employeeId).subscribe(employee => {
+      // Patch employee data into the form
       this.updateEmployeeForm.patchValue({
         name: employee.name,
         department: employee.department,
         salary: employee.salary
       });
+    }, error => {
+      console.error('Error fetching employee:', error);
     });
   }
 
@@ -253,8 +263,10 @@ export class UpdateEmployeeComponent implements OnInit {
     if (this.updateEmployeeForm.valid) {
       this.employeeService.updateEmployee(this.employeeId, this.updateEmployeeForm.value)
         .subscribe(() => {
-          // After update, navigate back to home (employee list)
+          // After update, navigate back to the employee list
           this.router.navigate(['/']);
+        }, error => {
+          console.error('Error updating employee:', error);
         });
     }
   }
@@ -308,9 +320,9 @@ button:disabled {
 
 4. Routing Module
 
-Ensure your routes are set up so that the update page receives the employee id:
-
 File: app-routing.module.ts
+
+Ensure your routes are correct so that the update page receives an id.
 
 import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
@@ -334,8 +346,6 @@ export class AppRoutingModule {}
 ---
 
 5. Module Declaration
-
-Ensure your module declares all components and imports required modules.
 
 File: app.module.ts
 
@@ -371,16 +381,14 @@ export class AppModule { }
 
 ---
 
-Explanation
+Final Notes
 
-UpdateEmployeeComponent
-The component now uses this.route.paramMap.subscribe() to reliably extract the id from the URL (instead of using snapshot alone). Once the id is obtained, it calls loadEmployee() to fetch the employee details and patch them into the form. On form submission, it calls the update service and then navigates back to the home page (employee list).
+Route Parameter Extraction: In the UpdateEmployeeComponent, we subscribe to this.route.paramMap to ensure the id parameter is correctly extracted. This avoids the undefined issue.
 
-GetAllEmployeeComponent
-The delete button calls deleteEmployee(id), which confirms deletion and then calls the service to remove the employee. After deletion, it refreshes the list by calling getAllEmployees().
+Navigation: After a successful update, the app navigates back to the home page ('/'), where the updated employee list is shown.
 
-Routing & Service
-The routing module is unchanged except for confirming that /employee/:id is used for updates. The service methods match the expected endpoints from your Spring Boot controller.
+Delete Operation: In the get-all component, after deletion the list is refreshed by calling getAllEmployees().
 
 
-Try these updated files in your Angular project. They should work together to update an employee and delete an employee as expected. Let me know if you run into any further issues!
+Try integrating these updated files into your project. They should resolve the undefined id issue and allow update and delete operations to work correctly with your Spring Boot backend. Let me know if you need further assistance!
+
