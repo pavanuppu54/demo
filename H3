@@ -1,0 +1,35 @@
+<button class="btn-new" routerLink="/customer">Post New Customer</button>
+
+<table>
+
+<thead>
+
+<tr>
+
+<th>Name</th>
+
+<th>Email</th>
+
+<th>Phone</th>
+
+<th>Action</th>
+
+</tr>
+
+</thead>
+
+<tbody>
+
+<tr *ngfor="let customer of customers">
+
+<td>{{customer.name}}</td>
+
+<td>{{customer.email}}</td>
+
+<td>{{customer.phone}}</td>
+
+</tr>
+
+</tbody>
+
+/table>
