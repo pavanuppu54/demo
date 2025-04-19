@@ -1,65 +1,69 @@
-Great! To download all employee data as a CSV file when a button is clicked, follow these steps:
+To add "Sort by Ascending" and "Sort by Descending" buttons after the table headers (ID, Name, Department, Salary), here’s the updated solution:
 
 
 ---
 
-1. Add Download Button in HTML
+1. Update get-all-employee.component.html
 
-Place this in your get-all-employee.component.html, preferably above or below your table:
+Modify your table headers to include sorting buttons like this:
 
-<button (click)="downloadCSV()" class="download-button">Download CSV</button>
+<thead>
+  <tr>
+    <th>
+      ID
+      <button (click)="sortBy('id', true)">▲</button>
+      <button (click)="sortBy('id', false)">▼</button>
+    </th>
+    <th>
+      Name
+      <button (click)="sortBy('name', true)">▲</button>
+      <button (click)="sortBy('name', false)">▼</button>
+    </th>
+    <th>
+      Department
+      <button (click)="sortBy('department', true)">▲</button>
+      <button (click)="sortBy('department', false)">▼</button>
+    </th>
+    <th>
+      Salary
+      <button (click)="sortBy('salary', true)">▲</button>
+      <button (click)="sortBy('salary', false)">▼</button>
+    </th>
+    <th>Actions</th>
+  </tr>
+</thead>
 
 
 ---
 
-2. Add Logic in get-all-employee.component.ts
+2. Update get-all-employee.component.ts
 
-Update your component with this method:
+Add the following method to your component class:
 
-downloadCSV(): void {
-  const header = ['ID', 'Name', 'Department', 'Salary'];
-  const rows = this.filteredList.map(emp => [
-    emp.id,
-    emp.name,
-    emp.department,
-    emp.salary
-  ]);
-
-  const csvContent =
-    [header, ...rows]
-      .map(row => row.map(field => `"${field}"`).join(','))
-      .join('\n');
-
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(blob);
-  link.download = 'employee-data.csv';
-  link.click();
+sortBy(column: string, ascending: boolean): void {
+  this.employees.sort((a, b) => {
+    if (a[column] < b[column]) return ascending ? -1 : 1;
+    if (a[column] > b[column]) return ascending ? 1 : -1;
+    return 0;
+  });
+  this.changePage(1); // Reset to first page after sort
 }
 
 
 ---
 
-3. (Optional) Style the Button in get-all-employee.component.css
+3. (Optional) Style Sort Buttons in get-all-employee.component.css
 
-.download-button {
-  margin-bottom: 10px;
-  padding: 6px 12px;
-  background-color: #4CAF50;
-  color: white;
+th button {
   border: none;
-  border-radius: 4px;
+  background: none;
   cursor: pointer;
-}
-
-.download-button:hover {
-  background-color: #45a049;
+  font-size: 12px;
+  margin-left: 2px;
 }
 
 
 ---
 
-This will download all filtered records (including search results). If you want to download only all DB data, not filtered, change this.filteredList to this.employees.
-
-Want that version too?
+This will allow sorting by each column in both ascending and descending order using the ▲ and ▼ buttons. Want dropdowns instead of buttons for sorting?
 
