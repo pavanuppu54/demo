@@ -1,81 +1,148 @@
-Perfect! Here's how you can add a dropdown to choose records per page (3, 5, 8) and also display total records like 8 / 500.
+Here’s the full working and updated code for your Angular get-all-employee.component.ts and its HTML, including:
+
+Pagination
+
+Dropdown for page size (3, 5, 8)
+
+Search
+
+Display: "Showing X of Y records"
+
 
 
 ---
 
-Update your get-all-employee.component.html:
+get-all-employee.component.ts
 
-Replace the pagination section with this:
+import { Component, OnInit } from '@angular/core';
+import { EmployeeService } from 'src/app/service/employee.service';
 
-<!-- Pagination Controls + Dropdown -->
-<div class="pagination-controls">
-  <button (click)="prevPage()" [disabled]="currentPage === 1">Previous</button>
+@Component({
+  selector: 'app-get-all-employee',
+  templateUrl: './get-all-employee.component.html',
+  styleUrls: ['./get-all-employee.component.css']
+})
+export class GetAllEmployeeComponent implements OnInit {
 
-  <!-- Dropdown for items per page -->
-  <label for="itemsPerPage">Show:</label>
-  <select id="itemsPerPage" [(ngModel)]="itemsPerPage" (change)="changePage(1)">
-    <option *ngFor="let size of pageSizeOptions" [value]="size">{{ size }}</option>
-  </select>
+  employees: any[] = [];
+  searchText: string = '';
+  currentPage: number = 1;
+  itemsPerPage: number = 5;
+  pageSizeOptions: number[] = [3, 5, 8];
 
-  <span>Page {{ currentPage }} of {{ totalPages }}</span>
-  <button (click)="nextPage()" [disabled]="currentPage === totalPages">Next</button>
+  constructor(private employeeService: EmployeeService) {}
+
+  ngOnInit(): void {
+    this.getAllEmployees();
+  }
+
+  getAllEmployees(): void {
+    this.employeeService.getAllEmployee().subscribe((res) => {
+      this.employees = res;
+    });
+  }
+
+  get filteredList(): any[] {
+    const lower = this.searchText.toLowerCase();
+    return this.employees.filter(emp =>
+      (emp.name && emp.name.toLowerCase().includes(lower)) ||
+      (emp.department && emp.department.toLowerCase().includes(lower)) ||
+      (emp.salary && emp.salary.toString().includes(lower))
+    );
+  }
+
+  get totalPages(): number {
+    return Math.ceil(this.filteredList.length / this.itemsPerPage);
+  }
+
+  paginatedEmployees(): any[] {
+    const start = (this.currentPage - 1) * this.itemsPerPage;
+    return this.filteredList.slice(start, start + this.itemsPerPage);
+  }
+
+  changePage(page: number): void {
+    this.currentPage = page;
+  }
+
+  nextPage(): void {
+    if (this.currentPage < this.totalPages) {
+      this.currentPage++;
+    }
+  }
+
+  prevPage(): void {
+    if (this.currentPage > 1) {
+      this.currentPage--;
+    }
+  }
+
+  deleteEmployee(id: number): void {
+    this.employeeService.deleteEmployee(id).subscribe(() => {
+      this.getAllEmployees(); // Refresh after delete
+    });
+  }
+}
+
+
+---
+
+get-all-employee.component.html
+
+<div class="container">
+  <h2>Employee List</h2>
+
+  <div class="top-bar">
+    <button class="add-button" routerLink="/employee">Add Employee</button>
+    <input type="text" placeholder="Search..." [(ngModel)]="searchText" class="search-box" />
+  </div>
+
+  <table class="employee-table">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Name</th>
+        <th>Department</th>
+        <th>Salary</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let emp of paginatedEmployees()">
+        <td>{{ emp.id }}</td>
+        <td>{{ emp.name }}</td>
+        <td>{{ emp.department }}</td>
+        <td>{{ emp.salary }}</td>
+        <td>
+          <button class="update-button" [routerLink]="['/employee', emp.id]">Update</button>
+          <button class="delete-button" (click)="deleteEmployee(emp.id)">Delete</button>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Pagination controls -->
+  <div class="pagination-controls">
+    <button (click)="prevPage()" [disabled]="currentPage === 1">Previous</button>
+
+    <!-- Dropdown for items per page -->
+    <label for="itemsPerPage">Show:</label>
+    <select id="itemsPerPage" [(ngModel)]="itemsPerPage" (change)="changePage(1)">
+      <option *ngFor="let size of pageSizeOptions" [value]="size">{{ size }}</option>
+    </select>
+
+    <span>Page {{ currentPage }} of {{ totalPages }}</span>
+
+    <button (click)="nextPage()" [disabled]="currentPage === totalPages">Next</button>
+  </div>
+
+  <!-- Record info -->
+  <div class="record-info">
+    Showing {{ paginatedEmployees().length }} of {{ filteredList.length }} records
+  </div>
 </div>
 
-<!-- Total records info -->
-<div class="total-records">
-  Showing {{ paginatedEmployees().length }} of {{ filteredList.length }} employees
-</div>
-
 
 ---
 
-Update your get-all-employee.component.ts:
+Let me know if you want styling (CSS) for table, buttons, or pagination!
 
-Add this inside the component:
-
-pageSizeOptions: number[] = [3, 5, 8]; // dropdown options
-
-And modify changePage method like this (you can put it below prevPage):
-
-changePage(page: number): void {
-  this.currentPage = page;
-}
-
-Also update paginatedEmployees() method slightly to match selected page size:
-
-paginatedEmployees(): any[] {
-  const start = (this.currentPage - 1) * this.itemsPerPage;
-  return this.filteredList.slice(start, start + this.itemsPerPage);
-}
-
-
----
-
-CSS (Optional): Add to get-all-employee.component.css
-
-.pagination-controls {
-  margin-top: 15px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.total-records {
-  margin-top: 5px;
-  font-weight: bold;
-}
-
-
----
-
-This setup will:
-
-Show a dropdown beside "Previous" to choose how many records per page.
-
-Dynamically update based on selected number.
-
-Show info like: "Showing 3 of 8 employees".
-
-
-Let me know if you want page number buttons (1 2 3...) too!
