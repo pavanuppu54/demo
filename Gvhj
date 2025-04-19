@@ -1,44 +1,81 @@
-uizes
-  Registrar Office
-  My Transportation
-  Ticketing Support
-  Time Tables
-  Phd Exist Survey Feedback
-Home Go Back
-Course Internals
-Total 11 items.
-#	Academic Year	Semester	Course Code	course Name	Evaluation Components
-1	2024-2025	Even Sem	21UC0010	UNIVERSAL HUMAN VALUES & PROFESSIONAL ETHICS	
-Semester in Exam-II (MCQ)
-Semester in Exam-I (MCQ)
-Home Assignment and Textbook
-ALM
-2	2024-2025	Even Sem	21IE4250A	Capstone Project -2	
-project evaluation
-3	2024-2025	Even Sem	21UC0009M	ECOLOGY & ENVIRONMENT	
-Semester in Exam-II (MCQ)
-Semester in Exam-I (MCQ)
-Home Assignment and Textbook
-ALM
-4	2024-2025	Even Sem	21MB4068	FINANCIAL MANAGEMENT FOR ENGINEERS	
-Semester in Exam-II
-Semester in Exam-I
-Home Assignment and Textbook
-ALM
-5	2024-2025	Even Sem	21IE4053	INTERNSHIP	
-Skilling Continuous Evaluation
-6	2024-2025	Even Sem	OEEE4222M	ENERGY PRODUCTION, DISTRIBUTION AND SAFETY	
-Semester in Exam-II (MCQ)
-Semester in Exam-I (MCQ)
-MOOCs Review
-7	2024-2025	Even Sem	21CVQ001	Coding & VQR Training	
-Continuous Evaluation -Project
-8	2024-2025	Even Sem	21CC3000	AWS CERTIFIED CLOUD PRACTITIONER(CLF-C01)	
-Skill In-Sem Exam
-Skilling Continuous Evaluation
-9	2024-2025	Even Sem	21CC3268	AUTOMATION ANYWHERE UNIVERSITY CERTIFIED ESSENTIALS RPA PROFESSIONAL	
-Skill In-Sem
-Skilling Continuous Evaluation
-10	2024-2025	Even Sem	21CC3040	RED HAT CERTIFIED ENTERPRISE APPLICATION DEVELOPER	
-Quiz
-11	2024-2025	Even Sem	21CC3156	SALESFORCE AI ASSOCIATE
+Perfect! Here's how you can add a dropdown to choose records per page (3, 5, 8) and also display total records like 8 / 500.
+
+
+---
+
+Update your get-all-employee.component.html:
+
+Replace the pagination section with this:
+
+<!-- Pagination Controls + Dropdown -->
+<div class="pagination-controls">
+  <button (click)="prevPage()" [disabled]="currentPage === 1">Previous</button>
+
+  <!-- Dropdown for items per page -->
+  <label for="itemsPerPage">Show:</label>
+  <select id="itemsPerPage" [(ngModel)]="itemsPerPage" (change)="changePage(1)">
+    <option *ngFor="let size of pageSizeOptions" [value]="size">{{ size }}</option>
+  </select>
+
+  <span>Page {{ currentPage }} of {{ totalPages }}</span>
+  <button (click)="nextPage()" [disabled]="currentPage === totalPages">Next</button>
+</div>
+
+<!-- Total records info -->
+<div class="total-records">
+  Showing {{ paginatedEmployees().length }} of {{ filteredList.length }} employees
+</div>
+
+
+---
+
+Update your get-all-employee.component.ts:
+
+Add this inside the component:
+
+pageSizeOptions: number[] = [3, 5, 8]; // dropdown options
+
+And modify changePage method like this (you can put it below prevPage):
+
+changePage(page: number): void {
+  this.currentPage = page;
+}
+
+Also update paginatedEmployees() method slightly to match selected page size:
+
+paginatedEmployees(): any[] {
+  const start = (this.currentPage - 1) * this.itemsPerPage;
+  return this.filteredList.slice(start, start + this.itemsPerPage);
+}
+
+
+---
+
+CSS (Optional): Add to get-all-employee.component.css
+
+.pagination-controls {
+  margin-top: 15px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.total-records {
+  margin-top: 5px;
+  font-weight: bold;
+}
+
+
+---
+
+This setup will:
+
+Show a dropdown beside "Previous" to choose how many records per page.
+
+Dynamically update based on selected number.
+
+Show info like: "Showing 3 of 8 employees".
+
+
+Let me know if you want page number buttons (1 2 3...) too!
