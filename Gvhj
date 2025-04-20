@@ -294,3 +294,79 @@ export class EmployeeService {
     return this.http.delete(`${BASE_URL}/permanent/${id}`, { responseType: 'text' });
   }
 }
+
+
+
+The error you’re seeing:
+
+Ambiguous mapping. Cannot map 'employeeController' method [...] to {DELETE [/employee/{id}]}: There is already 'employeeController' bean method [...] mapped
+
+means that you have two @DeleteMapping("/employee/{id}") methods in the same controller, which is not allowed.
+
+
+---
+
+✅ Solution:
+
+You need to clearly separate the soft delete and permanent delete routes using different paths.
+
+Here’s how to fix it:
+
+
+---
+
+In EmployeeController.java:
+
+// Soft delete - marks employee as deleted (e.g., isDeleted = true)
+@DeleteMapping("/{id}")
+public ResponseEntity<String> softDeleteEmployee(@PathVariable Long id) {
+    employeeService.softDeleteEmployee(id);
+    return ResponseEntity.ok("Employee soft-deleted successfully");
+}
+
+// Permanent delete - removes from DB
+@DeleteMapping("/permanent/{id}")
+public ResponseEntity<String> permanentDeleteEmployee(@PathVariable Long id) {
+    employeeService.permanentDeleteEmployee(id);
+    return ResponseEntity.ok("Employee permanently deleted successfully");
+}
+
+
+---
+
+In EmployeeService.java:
+
+public void softDeleteEmployee(Long id) {
+    Employee employee = employeeRepository.findById(id)
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Employee not found"));
+    employee.setDeleted(true);
+    employeeRepository.save(employee);
+}
+
+public void permanentDeleteEmployee(Long id) {
+    if (!employeeRepository.existsById(id)) {
+        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Employee not found");
+    }
+    employeeRepository.deleteById(id);
+}
+
+
+---
+
+In Employee.java:
+
+@Column(name = "is_deleted")
+private boolean isDeleted = false;
+
+
+---
+
+In Repository (if needed for filtering):
+
+List<Employee> findByIsDeletedFalse();
+List<Employee> findByIsDeletedTrue();
+
+
+---
+
+Let me know if you want full code for controller + service + repository + Angular for this feature.
