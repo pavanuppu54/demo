@@ -1,18 +1,248 @@
-get filteredList(): any[] {
-  const lower = this.searchText.toLowerCase();
-  return this.employees.filter(emp =>
-    (emp.id && emp.id.toString().includes(lower)) ||
-    (emp.name && emp.name.toLowerCase().includes(lower)) ||
-    (emp.department && emp.department.toLowerCase().includes(lower)) ||
-    (emp.salary && emp.salary.toString().includes(lower))
-  );
+Here's a full working solution to implement soft delete in your Spring Boot + Angular app:
+
+
+---
+
+1. Backend (Spring Boot)
+
+a. Employee.java
+
+Add a deleted boolean field:
+
+@Entity
+@Table(name = "employees")
+public class Employee {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @NotBlank(message = "Name is required")
+    private String name;
+
+    @NotBlank(message = "Department is required")
+    private String department;
+
+    @Min(value = 1, message = "Salary must be positive")
+    private double salary;
+
+    private boolean deleted = false;
+
+    // Getters and setters
 }
 
-get totalPages(): number {
-  return Math.ceil(this.filteredList.length / this.itemsPerPage);
+
+---
+
+b. EmployeeDTO.java
+
+Add a deleted field:
+
+public class EmployeeDTO {
+    private Long id;
+    private String name;
+    private String department;
+    private double salary;
+    private boolean deleted;
+
+    public EmployeeDTO() {}
+
+    public EmployeeDTO(Long id, String name, String department, double salary, boolean deleted) {
+        this.id = id;
+        this.name = name;
+        this.department = department;
+        this.salary = salary;
+        this.deleted = deleted;
+    }
+
+    // Getters and setters
 }
 
-paginatedEmployees(): any[] {
-  const start = (this.currentPage - 1) * this.itemsPerPage;
-  return this.filteredList.slice(start, start + this.itemsPerPage);
+
+---
+
+c. EmployeeRepository.java
+
+public interface EmployeeRepository extends JpaRepository<Employee, Long> {
+    List<Employee> findByDeletedFalse();
+    List<Employee> findByDeletedTrue();
 }
+
+
+---
+
+d. EmployeeService.java
+
+Update methods:
+
+public List<EmployeeDTO> getAllEmployees() {
+    return employeeRepository.findByDeletedFalse().stream()
+        .map(emp -> new EmployeeDTO(emp.getId(), emp.getName(), emp.getDepartment(), emp.getSalary(), emp.isDeleted()))
+        .collect(Collectors.toList());
+}
+
+public List<EmployeeDTO> getDeletedEmployees() {
+    return employeeRepository.findByDeletedTrue().stream()
+        .map(emp -> new EmployeeDTO(emp.getId(), emp.getName(), emp.getDepartment(), emp.getSalary(), emp.isDeleted()))
+        .collect(Collectors.toList());
+}
+
+public void softDeleteEmployee(Long id) {
+    Employee emp = employeeRepository.findById(id)
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Employee not found"));
+    emp.setDeleted(true);
+    employeeRepository.save(emp);
+}
+
+public void restoreEmployee(Long id) {
+    Employee emp = employeeRepository.findById(id)
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Employee not found"));
+    emp.setDeleted(false);
+    employeeRepository.save(emp);
+}
+
+public void permanentDeleteEmployee(Long id) {
+    if (!employeeRepository.existsById(id)) {
+        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Employee not found");
+    }
+    employeeRepository.deleteById(id);
+}
+
+
+---
+
+e. EmployeeController.java
+
+@GetMapping
+public ResponseEntity<List<EmployeeDTO>> getAllEmployees() {
+    return ResponseEntity.ok(employeeService.getAllEmployees());
+}
+
+@GetMapping("/deleted")
+public ResponseEntity<List<EmployeeDTO>> getDeletedEmployees() {
+    return ResponseEntity.ok(employeeService.getDeletedEmployees());
+}
+
+@DeleteMapping("/{id}")
+public ResponseEntity<String> softDelete(@PathVariable Long id) {
+    employeeService.softDeleteEmployee(id);
+    return ResponseEntity.ok("Employee moved to recently deleted.");
+}
+
+@PatchMapping("/restore/{id}")
+public ResponseEntity<String> restore(@PathVariable Long id) {
+    employeeService.restoreEmployee(id);
+    return ResponseEntity.ok("Employee restored.");
+}
+
+@DeleteMapping("/permanent/{id}")
+public ResponseEntity<String> permanentDelete(@PathVariable Long id) {
+    employeeService.permanentDeleteEmployee(id);
+    return ResponseEntity.ok("Employee permanently deleted.");
+}
+
+
+---
+
+2. Frontend (Angular)
+
+a. Add New Component for Deleted Employees
+
+ng generate component deleted-employees
+
+
+---
+
+b. employee.service.ts
+
+getDeletedEmployees(): Observable<any[]> {
+  return this.http.get<any[]>(`${this.baseUrl}/deleted`);
+}
+
+softDeleteEmployee(id: number): Observable<any> {
+  return this.http.delete(`${this.baseUrl}/${id}`, { responseType: 'text' });
+}
+
+restoreEmployee(id: number): Observable<any> {
+  return this.http.patch(`${this.baseUrl}/restore/${id}`, {}, { responseType: 'text' });
+}
+
+permanentDeleteEmployee(id: number): Observable<any> {
+  return this.http.delete(`${this.baseUrl}/permanent/${id}`, { responseType: 'text' });
+}
+
+
+---
+
+c. deleted-employees.component.ts
+
+import { Component, OnInit } from '@angular/core';
+import { EmployeeService } from '../service/employee.service';
+
+@Component({
+  selector: 'app-deleted-employees',
+  templateUrl: './deleted-employees.component.html',
+  styleUrls: ['./deleted-employees.component.css']
+})
+export class DeletedEmployeesComponent implements OnInit {
+  deletedEmployees: any[] = [];
+
+  constructor(private employeeService: EmployeeService) {}
+
+  ngOnInit(): void {
+    this.loadDeletedEmployees();
+  }
+
+  loadDeletedEmployees() {
+    this.employeeService.getDeletedEmployees().subscribe(res => {
+      this.deletedEmployees = res;
+    });
+  }
+
+  restore(id: number) {
+    this.employeeService.restoreEmployee(id).subscribe(() => {
+      this.loadDeletedEmployees();
+    });
+  }
+
+  permanentDelete(id: number) {
+    this.employeeService.permanentDeleteEmployee(id).subscribe(() => {
+      this.loadDeletedEmployees();
+    });
+  }
+}
+
+
+---
+
+d. deleted-employees.component.html
+
+<h2>Recently Deleted Employees</h2>
+<table>
+  <tr>
+    <th>ID</th><th>Name</th><th>Department</th><th>Salary</th><th>Actions</th>
+  </tr>
+  <tr *ngFor="let emp of deletedEmployees">
+    <td>{{ emp.id }}</td>
+    <td>{{ emp.name }}</td>
+    <td>{{ emp.department }}</td>
+    <td>{{ emp.salary }}</td>
+    <td>
+      <button (click)="restore(emp.id)">Restore</button>
+      <button (click)="permanentDelete(emp.id)">Delete Permanently</button>
+    </td>
+  </tr>
+</table>
+
+
+---
+
+e. Add Button in Main List (HTML)
+
+<button routerLink="/deleted-employees">Recently Deleted</button>
+
+
+---
+
+Let me know if you also want CSV export for deleted data, or help setting up routing for the new component.
+
