@@ -1,69 +1,18 @@
-To add "Sort by Ascending" and "Sort by Descending" buttons after the table headers (ID, Name, Department, Salary), here’s the updated solution:
-
-
----
-
-1. Update get-all-employee.component.html
-
-Modify your table headers to include sorting buttons like this:
-
-<thead>
-  <tr>
-    <th>
-      ID
-      <button (click)="sortBy('id', true)">▲</button>
-      <button (click)="sortBy('id', false)">▼</button>
-    </th>
-    <th>
-      Name
-      <button (click)="sortBy('name', true)">▲</button>
-      <button (click)="sortBy('name', false)">▼</button>
-    </th>
-    <th>
-      Department
-      <button (click)="sortBy('department', true)">▲</button>
-      <button (click)="sortBy('department', false)">▼</button>
-    </th>
-    <th>
-      Salary
-      <button (click)="sortBy('salary', true)">▲</button>
-      <button (click)="sortBy('salary', false)">▼</button>
-    </th>
-    <th>Actions</th>
-  </tr>
-</thead>
-
-
----
-
-2. Update get-all-employee.component.ts
-
-Add the following method to your component class:
-
-sortBy(column: string, ascending: boolean): void {
-  this.employees.sort((a, b) => {
-    if (a[column] < b[column]) return ascending ? -1 : 1;
-    if (a[column] > b[column]) return ascending ? 1 : -1;
-    return 0;
-  });
-  this.changePage(1); // Reset to first page after sort
+get filteredList(): any[] {
+  const lower = this.searchText.toLowerCase();
+  return this.employees.filter(emp =>
+    (emp.id && emp.id.toString().includes(lower)) ||
+    (emp.name && emp.name.toLowerCase().includes(lower)) ||
+    (emp.department && emp.department.toLowerCase().includes(lower)) ||
+    (emp.salary && emp.salary.toString().includes(lower))
+  );
 }
 
-
----
-
-3. (Optional) Style Sort Buttons in get-all-employee.component.css
-
-th button {
-  border: none;
-  background: none;
-  cursor: pointer;
-  font-size: 12px;
-  margin-left: 2px;
+get totalPages(): number {
+  return Math.ceil(this.filteredList.length / this.itemsPerPage);
 }
 
-
----
-
-This will allow sorting by each column in both ascending and descending order using the ▲ and ▼ buttons. Want dropdowns instead of buttons for sorting?
-
+paginatedEmployees(): any[] {
+  const start = (this.currentPage - 1) * this.itemsPerPage;
+  return this.filteredList.slice(start, start + this.itemsPerPage);
+}
