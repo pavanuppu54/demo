@@ -245,4 +245,52 @@ e. Add Button in Main List (HTML)
 ---
 
 Let me know if you also want CSV export for deleted data, or help setting up routing for the new component.
+import { HttpClient } from '@angular/common/http';
+import { Injectable } from '@angular/core';
+import { Observable } from 'rxjs';
 
+const BASE_URL = 'http://localhost:8080/employee';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class EmployeeService {
+
+  constructor(private http: HttpClient) {}
+
+  getAllEmployee(): Observable<any[]> {
+    return this.http.get<any[]>(`${BASE_URL}`);
+  }
+
+  postEmployee(employee: any): Observable<any> {
+    return this.http.post(`${BASE_URL}`, employee);
+  }
+
+  getEmployeeById(id: number): Observable<any> {
+    return this.http.get(`${BASE_URL}/${id}`);
+  }
+
+  updateEmployee(id: number, employee: any): Observable<any> {
+    return this.http.put(`${BASE_URL}/${id}`, employee);
+  }
+
+  deleteEmployee(id: number): Observable<any> {
+    return this.http.delete(`${BASE_URL}/${id}`);
+  }
+
+  getDeletedEmployees(): Observable<any[]> {
+    return this.http.get<any[]>(`${BASE_URL}/deleted`);
+  }
+
+  softDeleteEmployee(id: number): Observable<any> {
+    return this.http.delete(`${BASE_URL}/${id}`, { responseType: 'text' });
+  }
+
+  restoreEmployee(id: number): Observable<any> {
+    return this.http.patch(`${BASE_URL}/restore/${id}`, {}, { responseType: 'text' });
+  }
+
+  permanentDeleteEmployee(id: number): Observable<any> {
+    return this.http.delete(`${BASE_URL}/permanent/${id}`, { responseType: 'text' });
+  }
+}
