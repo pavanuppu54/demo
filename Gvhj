@@ -1,18 +1,17 @@
-Here's a full working solution to implement soft delete in your Spring Boot + Angular app:
+To implement a soft delete feature in your Angular and Spring Boot application, allowing for restoring or permanently deleting records, follow the steps below:
 
 
 ---
 
-1. Backend (Spring Boot)
+🛠 Backend (Spring Boot)
 
-a. Employee.java
+1. Update the Employee Entity
 
-Add a deleted boolean field:
+Add a deleted flag to indicate soft deletion:
 
 @Entity
 @Table(name = "employees")
 public class Employee {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -23,7 +22,7 @@ public class Employee {
     @NotBlank(message = "Department is required")
     private String department;
 
-    @Min(value = 1, message = "Salary must be positive")
+    @Min(value = 1, message = "Salary must be greater than 0")
     private double salary;
 
     private boolean deleted = false;
@@ -31,161 +30,151 @@ public class Employee {
     // Getters and setters
 }
 
+2. Modify the Repository
 
----
-
-b. EmployeeDTO.java
-
-Add a deleted field:
-
-public class EmployeeDTO {
-    private Long id;
-    private String name;
-    private String department;
-    private double salary;
-    private boolean deleted;
-
-    public EmployeeDTO() {}
-
-    public EmployeeDTO(Long id, String name, String department, double salary, boolean deleted) {
-        this.id = id;
-        this.name = name;
-        this.department = department;
-        this.salary = salary;
-        this.deleted = deleted;
-    }
-
-    // Getters and setters
-}
-
-
----
-
-c. EmployeeRepository.java
+Extend JpaRepository and add a method to find non-deleted employees:
 
 public interface EmployeeRepository extends JpaRepository<Employee, Long> {
     List<Employee> findByDeletedFalse();
-    List<Employee> findByDeletedTrue();
 }
 
+3. Update the Service Layer
 
----
+Implement methods to handle soft delete, restore, and permanent delete:
 
-d. EmployeeService.java
+@Service
+public class EmployeeService {
 
-Update methods:
+    @Autowired
+    private EmployeeRepository employeeRepository;
 
-public List<EmployeeDTO> getAllEmployees() {
-    return employeeRepository.findByDeletedFalse().stream()
-        .map(emp -> new EmployeeDTO(emp.getId(), emp.getName(), emp.getDepartment(), emp.getSalary(), emp.isDeleted()))
-        .collect(Collectors.toList());
-}
-
-public List<EmployeeDTO> getDeletedEmployees() {
-    return employeeRepository.findByDeletedTrue().stream()
-        .map(emp -> new EmployeeDTO(emp.getId(), emp.getName(), emp.getDepartment(), emp.getSalary(), emp.isDeleted()))
-        .collect(Collectors.toList());
-}
-
-public void softDeleteEmployee(Long id) {
-    Employee emp = employeeRepository.findById(id)
-        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Employee not found"));
-    emp.setDeleted(true);
-    employeeRepository.save(emp);
-}
-
-public void restoreEmployee(Long id) {
-    Employee emp = employeeRepository.findById(id)
-        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Employee not found"));
-    emp.setDeleted(false);
-    employeeRepository.save(emp);
-}
-
-public void permanentDeleteEmployee(Long id) {
-    if (!employeeRepository.existsById(id)) {
-        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Employee not found");
+    public List<Employee> getAllEmployees() {
+        return employeeRepository.findByDeletedFalse();
     }
-    employeeRepository.deleteById(id);
+
+    public List<Employee> getDeletedEmployees() {
+        return employeeRepository.findAll().stream()
+                .filter(Employee::isDeleted)
+                .collect(Collectors.toList());
+    }
+
+    public void softDeleteEmployee(Long id) {
+        Employee employee = employeeRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Employee not found"));
+        employee.setDeleted(true);
+        employeeRepository.save(employee);
+    }
+
+    public void restoreEmployee(Long id) {
+        Employee employee = employeeRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Employee not found"));
+        employee.setDeleted(false);
+        employeeRepository.save(employee);
+    }
+
+    public void permanentlyDeleteEmployee(Long id) {
+        employeeRepository.deleteById(id);
+    }
+}
+
+4. Update the Controller
+
+Add endpoints for soft delete, restore, and permanent delete:
+
+@RestController
+@RequestMapping("/employee")
+@CrossOrigin
+public class EmployeeController {
+
+    @Autowired
+    private EmployeeService employeeService;
+
+    @GetMapping
+    public List<Employee> getAllEmployees() {
+        return employeeService.getAllEmployees();
+    }
+
+    @GetMapping("/deleted")
+    public List<Employee> getDeletedEmployees() {
+        return employeeService.getDeletedEmployees();
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> softDeleteEmployee(@PathVariable Long id) {
+        employeeService.softDeleteEmployee(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/restore/{id}")
+    public ResponseEntity<Void> restoreEmployee(@PathVariable Long id) {
+        employeeService.restoreEmployee(id);
+        return ResponseEntity.ok().build();
+    }
+
+    @DeleteMapping("/permanent/{id}")
+    public ResponseEntity<Void> permanentlyDeleteEmployee(@PathVariable Long id) {
+        employeeService.permanentlyDeleteEmployee(id);
+        return ResponseEntity.noContent().build();
+    }
 }
 
 
 ---
 
-e. EmployeeController.java
+🎨 Frontend (Angular)
 
-@GetMapping
-public ResponseEntity<List<EmployeeDTO>> getAllEmployees() {
-    return ResponseEntity.ok(employeeService.getAllEmployees());
+1. Update the Service
+
+Add methods to handle soft delete, restore, and permanent delete:
+
+// employee.service.ts
+@Injectable({
+  providedIn: 'root'
+})
+export class EmployeeService {
+
+  private baseUrl = 'http://localhost:8080/employee';
+
+  constructor(private http: HttpClient) {}
+
+  getAllEmployees(): Observable<Employee[]> {
+    return this.http.get<Employee[]>(`${this.baseUrl}`);
+  }
+
+  getDeletedEmployees(): Observable<Employee[]> {
+    return this.http.get<Employee[]>(`${this.baseUrl}/deleted`);
+  }
+
+  softDeleteEmployee(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.baseUrl}/${id}`);
+  }
+
+  restoreEmployee(id: number): Observable<void> {
+    return this.http.put<void>(`${this.baseUrl}/restore/${id}`, {});
+  }
+
+  permanentlyDeleteEmployee(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.baseUrl}/permanent/${id}`);
+  }
 }
 
-@GetMapping("/deleted")
-public ResponseEntity<List<EmployeeDTO>> getDeletedEmployees() {
-    return ResponseEntity.ok(employeeService.getDeletedEmployees());
-}
+2. Create a Component for Deleted Employees
 
-@DeleteMapping("/{id}")
-public ResponseEntity<String> softDelete(@PathVariable Long id) {
-    employeeService.softDeleteEmployee(id);
-    return ResponseEntity.ok("Employee moved to recently deleted.");
-}
+Generate a new component:
 
-@PatchMapping("/restore/{id}")
-public ResponseEntity<String> restore(@PathVariable Long id) {
-    employeeService.restoreEmployee(id);
-    return ResponseEntity.ok("Employee restored.");
-}
+ng generate component components/deleted-employees
 
-@DeleteMapping("/permanent/{id}")
-public ResponseEntity<String> permanentDelete(@PathVariable Long id) {
-    employeeService.permanentDeleteEmployee(id);
-    return ResponseEntity.ok("Employee permanently deleted.");
-}
+Implement the logic to display and manage deleted employees:
 
-
----
-
-2. Frontend (Angular)
-
-a. Add New Component for Deleted Employees
-
-ng generate component deleted-employees
-
-
----
-
-b. employee.service.ts
-
-getDeletedEmployees(): Observable<any[]> {
-  return this.http.get<any[]>(`${this.baseUrl}/deleted`);
-}
-
-softDeleteEmployee(id: number): Observable<any> {
-  return this.http.delete(`${this.baseUrl}/${id}`, { responseType: 'text' });
-}
-
-restoreEmployee(id: number): Observable<any> {
-  return this.http.patch(`${this.baseUrl}/restore/${id}`, {}, { responseType: 'text' });
-}
-
-permanentDeleteEmployee(id: number): Observable<any> {
-  return this.http.delete(`${this.baseUrl}/permanent/${id}`, { responseType: 'text' });
-}
-
-
----
-
-c. deleted-employees.component.ts
-
-import { Component, OnInit } from '@angular/core';
-import { EmployeeService } from '../service/employee.service';
-
+// deleted-employees.component.ts
 @Component({
   selector: 'app-deleted-employees',
   templateUrl: './deleted-employees.component.html',
   styleUrls: ['./deleted-employees.component.css']
 })
 export class DeletedEmployeesComponent implements OnInit {
-  deletedEmployees: any[] = [];
+
+  deletedEmployees: Employee[] = [];
 
   constructor(private employeeService: EmployeeService) {}
 
@@ -193,180 +182,68 @@ export class DeletedEmployeesComponent implements OnInit {
     this.loadDeletedEmployees();
   }
 
-  loadDeletedEmployees() {
-    this.employeeService.getDeletedEmployees().subscribe(res => {
-      this.deletedEmployees = res;
+  loadDeletedEmployees(): void {
+    this.employeeService.getDeletedEmployees().subscribe(data => {
+      this.deletedEmployees = data;
     });
   }
 
-  restore(id: number) {
+  restoreEmployee(id: number): void {
     this.employeeService.restoreEmployee(id).subscribe(() => {
       this.loadDeletedEmployees();
     });
   }
 
-  permanentDelete(id: number) {
-    this.employeeService.permanentDeleteEmployee(id).subscribe(() => {
+  permanentlyDeleteEmployee(id: number): void {
+    this.employeeService.permanentlyDeleteEmployee(id).subscribe(() => {
       this.loadDeletedEmployees();
     });
   }
 }
 
+3. Update the Template
 
----
+<!-- deleted-employees.component.html -->
+<div class="container">
+  <h2>Recently Deleted Employees</h2>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Name</th>
+        <th>Department</th>
+        <th>Salary</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let emp of deletedEmployees">
+        <td>{{ emp.id }}</td>
+        <td>{{ emp.name }}</td>
+        <td>{{ emp.department }}</td>
+        <td>{{ emp.salary }}</td>
+        <td>
+          <button class="btn btn-success" (click)="restoreEmployee(emp.id)">Restore</button>
+          <button class="btn btn-danger" (click)="permanentlyDeleteEmployee(emp.id)">Delete Permanently</button>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
 
-d. deleted-employees.component.html
+4. Update Routing
 
-<h2>Recently Deleted Employees</h2>
-<table>
-  <tr>
-    <th>ID</th><th>Name</th><th>Department</th><th>Salary</th><th>Actions</th>
-  </tr>
-  <tr *ngFor="let emp of deletedEmployees">
-    <td>{{ emp.id }}</td>
-    <td>{{ emp.name }}</td>
-    <td>{{ emp.department }}</td>
-    <td>{{ emp.salary }}</td>
-    <td>
-      <button (click)="restore(emp.id)">Restore</button>
-      <button (click)="permanentDelete(emp.id)">Delete Permanently</button>
-    </td>
-  </tr>
-</table>
+Add a route for the deleted employees component:
 
-
----
-
-e. Add Button in Main List (HTML)
-
-<button routerLink="/deleted-employees">Recently Deleted</button>
-
-
----
-
-Let me know if you also want CSV export for deleted data, or help setting up routing for the new component.
-import { HttpClient } from '@angular/common/http';
-import { Injectable } from '@angular/core';
-import { Observable } from 'rxjs';
-
-const BASE_URL = 'http://localhost:8080/employee';
-
-@Injectable({
-  providedIn: 'root'
-})
-export class EmployeeService {
-
-  constructor(private http: HttpClient) {}
-
-  getAllEmployee(): Observable<any[]> {
-    return this.http.get<any[]>(`${BASE_URL}`);
-  }
-
-  postEmployee(employee: any): Observable<any> {
-    return this.http.post(`${BASE_URL}`, employee);
-  }
-
-  getEmployeeById(id: number): Observable<any> {
-    return this.http.get(`${BASE_URL}/${id}`);
-  }
-
-  updateEmployee(id: number, employee: any): Observable<any> {
-    return this.http.put(`${BASE_URL}/${id}`, employee);
-  }
-
-  deleteEmployee(id: number): Observable<any> {
-    return this.http.delete(`${BASE_URL}/${id}`);
-  }
-
-  getDeletedEmployees(): Observable<any[]> {
-    return this.http.get<any[]>(`${BASE_URL}/deleted`);
-  }
-
-  softDeleteEmployee(id: number): Observable<any> {
-    return this.http.delete(`${BASE_URL}/${id}`, { responseType: 'text' });
-  }
-
-  restoreEmployee(id: number): Observable<any> {
-    return this.http.patch(`${BASE_URL}/restore/${id}`, {}, { responseType: 'text' });
-  }
-
-  permanentDeleteEmployee(id: number): Observable<any> {
-    return this.http.delete(`${BASE_URL}/permanent/${id}`, { responseType: 'text' });
-  }
-}
-
-
-
-The error you’re seeing:
-
-Ambiguous mapping. Cannot map 'employeeController' method [...] to {DELETE [/employee/{id}]}: There is already 'employeeController' bean method [...] mapped
-
-means that you have two @DeleteMapping("/employee/{id}") methods in the same controller, which is not allowed.
+// app-routing.module.ts
+const routes: Routes = [
+  { path: '', component: GetAllEmployeeComponent },
+  { path: 'employee', component: PostEmployeeComponent },
+  { path: 'employee/:id', component: UpdateEmployeeComponent },
+  { path: 'deleted-employees', component: DeletedEmployeesComponent }
+];
 
 
 ---
 
-✅ Solution:
-
-You need to clearly separate the soft delete and permanent delete routes using different paths.
-
-Here’s how to fix it:
-
-
----
-
-In EmployeeController.java:
-
-// Soft delete - marks employee as deleted (e.g., isDeleted = true)
-@DeleteMapping("/{id}")
-public ResponseEntity<String> softDeleteEmployee(@PathVariable Long id) {
-    employeeService.softDeleteEmployee(id);
-    return ResponseEntity.ok("Employee soft-deleted successfully");
-}
-
-// Permanent delete - removes from DB
-@DeleteMapping("/permanent/{id}")
-public ResponseEntity<String> permanentDeleteEmployee(@PathVariable Long id) {
-    employeeService.permanentDeleteEmployee(id);
-    return ResponseEntity.ok("Employee permanently deleted successfully");
-}
-
-
----
-
-In EmployeeService.java:
-
-public void softDeleteEmployee(Long id) {
-    Employee employee = employeeRepository.findById(id)
-        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Employee not found"));
-    employee.setDeleted(true);
-    employeeRepository.save(employee);
-}
-
-public void permanentDeleteEmployee(Long id) {
-    if (!employeeRepository.existsById(id)) {
-        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Employee not found");
-    }
-    employeeRepository.deleteById(id);
-}
-
-
----
-
-In Employee.java:
-
-@Column(name = "is_deleted")
-private boolean isDeleted = false;
-
-
----
-
-In Repository (if needed for filtering):
-
-List<Employee> findByIsDeletedFalse();
-List<Employee> findByIsDeletedTrue();
-
-
----
-
-Let me know if you want full code for controller + service + repository + Angular for this feature.
+With these implementations, your application will support soft deletion of employees, allowing users to restore or permanently delete records as needed.
