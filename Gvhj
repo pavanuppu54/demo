@@ -456,3 +456,156 @@ public class EmployeeController {
 
 Let me know if you want the Angular code for displaying the "Recently Deleted" list and restore/permanent delete buttons.
 
+Great! Below is the complete set of frontend codes to support soft delete and manage a “Recently Deleted” section with restore and permanent delete options, matching your backend.
+
+
+---
+
+1. New Component: recently-deleted
+
+Run this in your terminal:
+
+ng generate component components/recently-deleted
+
+
+---
+
+2. recently-deleted.component.ts
+
+import { Component, OnInit } from '@angular/core';
+import { EmployeeService } from 'src/app/service/employee.service';
+
+@Component({
+  selector: 'app-recently-deleted',
+  templateUrl: './recently-deleted.component.html',
+  styleUrls: ['./recently-deleted.component.css']
+})
+export class RecentlyDeletedComponent implements OnInit {
+  deletedEmployees: any[] = [];
+
+  constructor(private employeeService: EmployeeService) {}
+
+  ngOnInit(): void {
+    this.getDeletedEmployees();
+  }
+
+  getDeletedEmployees(): void {
+    this.employeeService.getDeletedEmployees().subscribe((res) => {
+      this.deletedEmployees = res;
+    });
+  }
+
+  restoreEmployee(id: number): void {
+    this.employeeService.restoreEmployee(id).subscribe(() => {
+      this.getDeletedEmployees();
+    });
+  }
+
+  deletePermanently(id: number): void {
+    this.employeeService.permanentlyDeleteEmployee(id).subscribe(() => {
+      this.getDeletedEmployees();
+    });
+  }
+}
+
+
+---
+
+3. recently-deleted.component.html
+
+<h2>Recently Deleted Employees</h2>
+<table>
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Name</th>
+      <th>Department</th>
+      <th>Salary</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr *ngFor="let emp of deletedEmployees">
+      <td>{{ emp.id }}</td>
+      <td>{{ emp.name }}</td>
+      <td>{{ emp.department }}</td>
+      <td>{{ emp.salary }}</td>
+      <td>
+        <button (click)="restoreEmployee(emp.id)">Restore</button>
+        <button (click)="deletePermanently(emp.id)">Delete Permanently</button>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+
+---
+
+4. Update employee.service.ts
+
+Add these methods:
+
+getDeletedEmployees(): Observable<any[]> {
+  return this.http.get<any[]>(`${BASE_URL}/employee/deleted`);
+}
+
+restoreEmployee(id: number): Observable<any> {
+  return this.http.post(`${BASE_URL}/employee/restore/${id}`, {});
+}
+
+permanentlyDeleteEmployee(id: number): Observable<any> {
+  return this.http.delete(`${BASE_URL}/employee/permanent/${id}`);
+}
+
+
+---
+
+5. Update app-routing.module.ts
+
+Add route:
+
+import { RecentlyDeletedComponent } from './components/recently-deleted/recently-deleted.component';
+
+const routes: Routes = [
+  { path: '', component: GetAllEmployeeComponent },
+  { path: 'employee', component: PostEmployeeComponent },
+  { path: 'employee/:id', component: UpdateEmployeeComponent },
+  { path: 'deleted', component: RecentlyDeletedComponent } // new
+];
+
+
+---
+
+6. Update app.module.ts
+
+import { RecentlyDeletedComponent } from './components/recently-deleted/recently-deleted.component';
+
+@NgModule({
+  declarations: [
+    AppComponent,
+    GetAllEmployeeComponent,
+    PostEmployeeComponent,
+    UpdateEmployeeComponent,
+    RecentlyDeletedComponent // new
+  ],
+  ...
+})
+export class AppModule {}
+
+
+---
+
+7. Add Navigation in app.component.html
+
+<nav>
+  <a routerLink="/">All Employees</a> |
+  <a routerLink="/employee">Add Employee</a> |
+  <a routerLink="/deleted">Recently Deleted</a>
+</nav>
+<router-outlet></router-outlet>
+
+
+---
+
+Let me know if you want to add styling or a confirmation popup before restoring/deleting permanently.
+
