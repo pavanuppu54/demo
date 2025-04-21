@@ -676,3 +676,23 @@ Let me know if you want to add styling or a confirmation popup before restoring/
     Showing {{ paginatedEmployees().length }} of {{ filteredList.length }} records
   </div>
 </div>
+
+
+
+
+deleteEmployee(id: number): void {
+  if (confirm('Are you sure you want to delete this employee?')) {
+    this.employeeService.deleteEmployee(id).subscribe({
+      next: () => {
+        this.getAllEmployees(); // refresh list
+      },
+      error: (err) => {
+        console.error('Error deleting employee:', err);
+      }
+    });
+  }
+}
+
+deleteEmployee(id: number): Observable<any> {
+  return this.http.delete(`${BASE_URL}/employee/${id}`);
+}
