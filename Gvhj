@@ -609,3 +609,70 @@ export class AppModule {}
 
 Let me know if you want to add styling or a confirmation popup before restoring/deleting permanently.
 
+<div class="container">
+  <h2>Employee List</h2>
+
+  <div class="button-container">
+    <button class="add-button" routerLink="/employee">Add Employee</button>
+    <button (click)="downloadCSV()" class="add-button">Download CSV</button>
+    <button class="add-button" routerLink="/deleted">View Recently Deleted</button>
+
+    <input type="text" placeholder="Search..." [(ngModel)]="searchText" class="search-box" />
+  </div>
+
+  <table class="employee-table">
+    <thead>
+      <tr>
+        <th>
+          ID
+          <button (click)="sortBy('id', true)">asc</button>
+          <button (click)="sortBy('id', false)">des</button>
+        </th>
+        <th>
+          Name
+          <button (click)="sortBy('name', true)">asc</button>
+          <button (click)="sortBy('name', false)">des</button>
+        </th>
+        <th>
+          Department
+          <button (click)="sortBy('department', true)">asc</button>
+          <button (click)="sortBy('department', false)">des</button>
+        </th>
+        <th>
+          Salary
+          <button (click)="sortBy('salary', true)">asc</button>
+          <button (click)="sortBy('salary', false)">des</button>
+        </th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let emp of paginatedEmployees()">
+        <td>{{ emp.id }}</td>
+        <td>{{ emp.name }}</td>
+        <td>{{ emp.department }}</td>
+        <td>{{ emp.salary }}</td>
+        <td>
+          <button class="update-button" [routerLink]="['/employee', emp.id]">Update</button>
+          <button class="delete-button" (click)="deleteEmployee(emp.id)">Delete</button>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="pagination-controls">
+    <label for="itemsPerPage">Show: </label>
+    <select id="itemsPerPage" [(ngModel)]="itemsPerPage" (change)="changePage(1)">
+      <option *ngFor="let size of pageSizeOptions" [value]="size">{{ size }}</option>
+    </select>
+
+    <span>Page {{ currentPage }} of {{ totalPages }}</span>
+
+    <button (click)="prevPage()" [disabled]="currentPage === 1">Previous</button>
+    <button (click)="nextPage()" [disabled]="currentPage === totalPages">Next</button>
+  </div>
+
+  <div class="record-info">
+    Showing {{ paginatedEmployees().length }} of {{ filteredList.length }} records
+  </div>
+</div>
