@@ -1,24 +1,67 @@
-Thanks for sharing everything. I reviewed your full code and found multiple issues causing the Recently Deleted page not to work. Here's a fixed and fully working version of your setup:
+Thanks! Let's fix the Restore button issue and ensure that restored employees show up in the Get All Employees section.
 
 
 ---
 
-Spring Boot Backend Fixes
+Spring Boot Fixes (Backend)
 
-1. Soft delete implementation fix in deleteEmployee()
+1. Restore API not working? Let's add/fix it:
 
-Your method deletes the employee from the database. Instead, it should mark isDeleted = true.
+In EmployeeService.java:
 
-Fix in EmployeeService.java:
-
-public void deleteEmployee(Long id) {
+public void restoreEmployee(Long id) {
     Employee emp = employeeRepository.findById(id)
         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Employee not found"));
-    emp.setIsDeleted(true);
+    emp.setIsDeleted(false);
     employeeRepository.save(emp);
 }
 
-2. getAllEmployees() should return only active (not deleted) employees
+In EmployeeController.java:
+
+@PatchMapping("/restore/{id}")
+public ResponseEntity<String> restoreEmployee(@PathVariable Long id) {
+    employeeService.restoreEmployee(id);
+    return ResponseEntity.ok("Employee restored successfully");
+}
+
+Make sure this method exists and URL is:
+http://localhost:8080/employee/restore/{id}
+
+
+---
+
+Angular Fixes (Frontend)
+
+2. Ensure service method uses correct PATCH request:
+
+In employee.service.ts:
+
+restoreEmployee(id: number): Observable<any> {
+  return this.http.patch(`${BASE_URL}/employee/restore/${id}`, {});
+}
+
+3. In recently-deleted.component.ts:
+
+After restoring, call both:
+
+getDeletedEmployees() – to refresh the deleted list
+
+And optionally, navigate to / or manually update GetAllEmployeeComponent if both are on screen
+
+
+restoreEmployee(id: number): void {
+  this.employeeService.restoreEmployee(id).subscribe(() => {
+    this.getDeletedEmployees(); // Refresh deleted list
+
+    // OPTIONAL: If you want to navigate to list view after restore
+    // this.router.navigate(['/']);
+  });
+}
+
+
+---
+
+Final: Check getAllEmployees() only returns not-deleted
 
 public List<EmployeeDTO> getAllEmployees() {
     return employeeRepository.findByIsDeletedFalse()
@@ -27,141 +70,28 @@ public List<EmployeeDTO> getAllEmployees() {
         .collect(Collectors.toList());
 }
 
-3. Add method for fetching deleted employees
 
-public List<EmployeeDTO> getDeletedEmployees() {
-    return employeeRepository.findByIsDeletedTrue()
-        .stream()
-        .map(emp -> new EmployeeDTO(emp.getId(), emp.getName(), emp.getDepartment(), emp.getSalary()))
-        .collect(Collectors.toList());
-}
+---
 
-4. Add new endpoint in EmployeeController
+How to verify it works
 
-@GetMapping("/deleted")
-public ResponseEntity<List<EmployeeDTO>> getDeletedEmployees() {
-    return ResponseEntity.ok(employeeService.getDeletedEmployees());
-}
+1. Delete an employee (they move to Recently Deleted).
+
+
+2. Go to Recently Deleted – hit Restore on one.
+
+
+3. That employee disappears from Recently Deleted list.
+
+
+4. Refresh Get All Employees – the restored employee should be back.
+
+
+
+If still not showing, try refreshing manually or navigating back to '/' from the restore method.
 
 
 ---
 
-Angular Frontend Fixes
+Do you want me to add an automatic refresh in the GetAllEmployeeComponent as well after restore? Or toast notification after restore action?
 
-1. Fix employee.service.ts
-
-Update URL strings properly using backticks `` instead of quotes:
-
-getAllEmployee(): Observable<any[]> {
-  return this.http.get<any[]>(`${BASE_URL}/employee`);
-}
-
-deleteEmployee(id: number): Observable<any> {
-  return this.http.delete(`${BASE_URL}/employee/${id}`);
-}
-
-getDeletedEmployees(): Observable<any[]> {
-  return this.http.get<any[]>(`${BASE_URL}/employee/deleted`);
-}
-
-restoreEmployee(id: number): Observable<any> {
-  return this.http.patch(`${BASE_URL}/employee/restore/${id}`, {});
-}
-
-permanentlyDeleteEmployee(id: number): Observable<any> {
-  return this.http.delete(`${BASE_URL}/employee/permanent/${id}`);
-}
-
-
----
-
-2. Fix spelling mistake in recently-deleted.component.ts
-
-export class RecentlyDeletedComponent implements OnInit {
-  deletedEmployees: any[] = [];
-
-  constructor(private employeeService: EmployeeService) {}
-
-  ngOnInit(): void {
-    this.getDeletedEmployees();
-  }
-
-  getDeletedEmployees(): void {
-    this.employeeService.getDeletedEmployees().subscribe((res) => {
-      this.deletedEmployees = res;
-    });
-  }
-
-  restoreEmployee(id: number): void {
-    this.employeeService.restoreEmployee(id).subscribe(() => {
-      this.getDeletedEmployees();
-    });
-  }
-
-  deletePermanently(id: number): void {
-    this.employeeService.permanentlyDeleteEmployee(id).subscribe(() => {
-      this.getDeletedEmployees();
-    });
-  }
-}
-
-
----
-
-*3. Fix ngFor and bindings in recently-deleted.component.html
-
-<h2>Recently Deleted Employees</h2>
-
-<table>
-  <thead>
-    <tr>
-      <th>ID</th>
-      <th>Name</th>
-      <th>Department</th>
-      <th>Salary</th>
-      <th>Actions</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr *ngFor="let emp of deletedEmployees">
-      <td>{{ emp.id }}</td>
-      <td>{{ emp.name }}</td>
-      <td>{{ emp.department }}</td>
-      <td>{{ emp.salary }}</td>
-      <td>
-        <button (click)="restoreEmployee(emp.id)">Restore</button>
-        <button (click)="deletePermanently(emp.id)">Delete Permanently</button>
-      </td>
-    </tr>
-  </tbody>
-</table>
-
-
----
-
-Routing Fix in app-routing.module.ts
-
-const routes: Routes = [
-  { path: '', component: GetAllEmployeeComponent },
-  { path: 'employee', component: PostEmployeeComponent },
-  { path: 'employee/:id', component: UpdateEmployeeComponent },
-  { path: 'deleted', component: RecentlyDeletedComponent }
-];
-
-
----
-
-Summary:
-
-Your backend was physically deleting employees instead of soft deleting. Fixed.
-
-Your Angular service had broken URL templates. Fixed.
-
-RecentlyDeletedComponent had typo in *ngFor and method names. Fixed.
-
-Backend now returns deleted employees properly via /employee/deleted.
-
-
-Test it now. If you want, I can send all final files organized for you too.
-
-Let me know if you also want toast alerts after actions like delete/restore.
