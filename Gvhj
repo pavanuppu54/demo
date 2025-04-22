@@ -1,1 +1,118 @@
 
+Sure! Here's how you can style your Recently Deleted HTML page similar to Get All Employees. I’ll assume you used a card/table layout with some buttons in get-all-employee.component.html.
+
+
+---
+
+recently-deleted.component.html (Updated with CSS)
+
+<div class="container">
+  <h2 class="title">Recently Deleted Employees</h2>
+
+  <div class="card-container" *ngIf="deletedEmployees.length > 0; else noData">
+    <div class="employee-card" *ngFor="let emp of deletedEmployees">
+      <p><strong>ID:</strong> {{ emp.id }}</p>
+      <p><strong>Name:</strong> {{ emp.name }}</p>
+      <p><strong>Department:</strong> {{ emp.department }}</p>
+      <p><strong>Salary:</strong> {{ emp.salary }}</p>
+
+      <div class="btn-group">
+        <button class="btn restore" (click)="restoreEmployee(emp.id)">Restore</button>
+        <button class="btn delete" (click)="permanentDeleteEmployee(emp.id)">Delete Permanently</button>
+      </div>
+    </div>
+  </div>
+
+  <ng-template #noData>
+    <p class="no-data">No recently deleted employees.</p>
+  </ng-template>
+</div>
+
+
+---
+
+recently-deleted.component.css
+
+.container {
+  max-width: 800px;
+  margin: 20px auto;
+  padding: 16px;
+}
+
+.title {
+  text-align: center;
+  font-size: 24px;
+  margin-bottom: 20px;
+  color: #333;
+}
+
+.card-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: center;
+}
+
+.employee-card {
+  background-color: #f9f9f9;
+  border-radius: 12px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  padding: 16px;
+  width: 280px;
+  transition: transform 0.2s;
+}
+
+.employee-card:hover {
+  transform: scale(1.02);
+}
+
+.employee-card p {
+  margin: 6px 0;
+  color: #444;
+}
+
+.btn-group {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 12px;
+}
+
+.btn {
+  padding: 8px 12px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background-color 0.3s ease;
+}
+
+.btn.restore {
+  background-color: #4CAF50;
+  color: white;
+}
+
+.btn.restore:hover {
+  background-color: #45a049;
+}
+
+.btn.delete {
+  background-color: #f44336;
+  color: white;
+}
+
+.btn.delete:hover {
+  background-color: #da190b;
+}
+
+.no-data {
+  text-align: center;
+  color: #888;
+  font-size: 18px;
+  margin-top: 40px;
+}
+
+
+---
+
+Let me know if you want a table layout instead of card layout!
+
