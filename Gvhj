@@ -1,404 +1,203 @@
-Based on your request, I will update the provided code to support multiple event actions (Add to My Events and Archive Event) via a new dialog triggered from the Actions button. The updated code will include a new dialog component for selecting actions, integrate the existing event-assign-to-me-modal.component.html and create a multi-event version of event-archive-dialog.component.ts. The UI will remain consistent with the existing design.
+The intermittent issue where the grid sometimes shows updated data after archiving multiple events and sometimes shows old data suggests a timing or race condition in AG-Grid's server-side row model, or possibly an issue with the server response not being consistently processed. Since manual reloading consistently fetches the correct data, the problem likely lies in how the grid's cache is cleared or how the datasource refresh is handled. The previous solution used `setServerSideDatasource`, pagination reset, and a delayed `refreshServerSide` to force a refresh, but the inconsistency indicates that the grid may not always trigger a new server request or process the response correctly.
 
-Updated Files
-all-events.component.html
-Updated Line: Added a new button to open the multi-action selection dialog.
-Change: Modified the Actions button to open a dialog with options instead of directly opening the multi-action dialog.
-html
+Based on the code provided and the issue's intermittent nature, the solution needs to:
+1. Ensure the grid's cache is fully cleared and a new server request is guaranteed.
+2. Handle potential async timing issues more robustly.
+3. Verify that the server-side datasource is reinitialized correctly every time.
 
-Copy
-<div class="wrapper">
-    <div id="all-events-grid" fxLayout="column">
-        <div fxFlex="100" class="top-action-panel" fxLayout="row" fxLayoutGap="1em">
-            <div fxFlex>{{getSelectedRowsCount()}} event(s) selected</div>
+Below is a refined solution that builds on the previous changes, focusing on stabilizing the refresh behavior and adding safeguards to ensure consistent data fetching.
 
-            <button id="select-unselect-all-button" mat-button mat-stroked-button color="primary"
-                    data-testid="btn-toggle-select-unselect-all"
-                    *ngIf="shouldEnableForPendingEvents() || shouldEnableForMyEvents()|| shouldEnableForMyTeamEvents()"
-                    (click)="onSelectUnselectAllButtonClick()">{{ areAllLinesSelected() ? 'Unselect All' : 'Select All' }}</button>
+---
 
-            <button id="assign-to-me-button" mat-button mat-stroked-button color="primary"
-                    data-testid="btn-add-selected-to-my-events"
-                    *ngIf="shouldEnableForPendingEvents()"
-                    [disabled]="!getSelectedRowsCount()"
-                    (click)="onAddToMyEventsClick()">
-                <mat-icon>add</mat-icon> Add to my events
-            </button>
+### File to Modify: `all-events.component.ts`
 
-            <button id="multi-action-button" mat-button mat-stroked-button color="primary"
-                    data-testid="btn-open-multi-action-dialog"
-                    *ngIf="shouldEnableForPendingEvents()"
-                    [disabled]="!getSelectedRowsCount()"
-                    (click)="openActionSelectionDialog()">
-                <mat-icon>more_vert</mat-icon> Actions
-            </button>
-        </div>
+Update the `openActionSelectionDialog` method to include a more robust refresh mechanism with explicit cache clearing, datasource reinitialization, and a fallback to ensure the grid fetches new data. We'll also add logging to help diagnose the intermittent issue.
 
-        <ag-grid-angular
-            class="ag-theme-balham"
-            [gridOptions]="gridOptions"
-            [rowHeight]="64"
-            (cellClicked)="navigateToEventDetails($event)"
-            (gridReady)="onGridReady()">
-        </ag-grid-angular>
-    </div>
-</div>
-all-events.component.ts
-Updated Lines: Added openActionSelectionDialog method and integrated it with the new action selection logic.
-Change: The Actions button now opens a dialog to select between "Add to My Events" and "Archive Event", triggering the respective modals.
-typescript
-
-Copy
-import {Component, EventEmitter, Input, OnInit, Output} from '@angular/core';
-import {Router} from '@angular/router';
-import {EventViewEnum} from '../../../core/model/workflow/EventView.enum';
-import {GridOptions, IServerSideDatasource} from 'ag-grid-enterprise';
-import {EventSorting} from '../../../core/model/workflow/EventSorting';
-import {WorkflowGridConfigurationService} from '../utils/workflow-grid-configuration.service';
-import {EventService} from '../../../core/services/workflow/event.service';
-import {EventAssignToMeModalComponent} from './event-assign-to-me-modal.component';
-import {MatDialog} from '@angular/material/dialog';
-import {WorkflowSnackbarComponent} from '../components/workflow-snackbar.component';
-import {User} from '../../../core/model/workflow/Team';
-import {EventArchiveDialogComponent} from './event-archive-dialog.component';
-import {ActionSelectionDialogComponent} from './action-selection-dialog.component';
-
-@Component({
-    selector: 'app-all-events',
-    templateUrl: './all-events.component.html',
-    styleUrls: ['./all-events.component.scss'],
-})
-export class AllEventsComponent implements OnInit {
-    @Input() eventView: EventViewEnum;
-    @Input() user: User;
-    @Output() gridReadyEmitter = new EventEmitter<GridOptions>();
-
-    public gridOptions: GridOptions;
-
-    constructor(
-        private workflowGridConfigurationService: WorkflowGridConfigurationService,
-        private eventService: EventService,
-        private dialog: MatDialog,
-        private workflowSnackBar: WorkflowSnackbarComponent,
-        private router: Router
-    ) {
-    }
-
-    ngOnInit(): void {
-        this.gridOptions = this.workflowGridConfigurationService.getGridOptionForView(this.eventView);
-        this.gridOptions.context = {
-            gridOperationService: this
-        };
-        this.gridOptions.onPaginationChanged = function (event) {
-            event.api.deselectAll();
-        };
-    }
-
-    onGridReady(): void {
-        const eventSorting = this.eventService.getEventTableSortingMap()?.get(this.eventView);
-        if (eventSorting && eventSorting.columnName && eventSorting.order) {
-            var sort = [{
-                colId: eventSorting.columnName,
-                sort: eventSorting.order.toLowerCase()
-            }];
-            //this.gridOptions.api.setSortModel(sort);  // TODO ==> put in ColumnState
-        }
-        const datasource = this.createServerSideDatasource();
-        this.gridOptions.api.setServerSideDatasource(datasource);
-        this.gridReadyEmitter.emit(this.gridOptions);
-    }
-
-    navigateToEventDetails(params): void {
-        if (params.column.colId !== 'actions' && params.column.colId !== 'stakeholders') {
-            const url = this.router.createUrlTree(['dashboard', 'workflow', 'event', params.data.id]);
-            window.open(url?.toString(), '_blank')
-        }
-    }
-
-    areAllLinesSelected(): boolean {
-        if (!this.gridOptions.api) {
-            return false;
-        }
-        return this.gridOptions.api.getSelectedRows().length === this.getCurrentPageSize();
-    }
-
-    purgeServerSideCache(): void {
-        this.gridOptions.api.refreshServerSide({purge: true});
-    }
-
-    getSelectedRows(): any[] {
-        if (!this.gridOptions.api) {
-            return [];
-        }
-        return this.gridOptions.api.getSelectedRows();
-    }
-
-    getSelectedRowsCount(): number {
-        if (!this.gridOptions.api) {
-            return 0;
-        }
-        return this.gridOptions.api.getSelectedRows().length;
-    }
-
-    onSelectUnselectAllButtonClick(): void {
-        if (!this.areAllLinesSelected()) {
-            const pageSize = this.getCurrentPageSize();
-            const firstRowIndex = this.gridOptions.api.paginationGetCurrentPage() * this.gridOptions.api.paginationGetPageSize();
-            for (let i = firstRowIndex; i < firstRowIndex + pageSize; i++) {
-                this.gridOptions.api.getDisplayedRowAtIndex(i).setSelected(true);
+```typescript
+openActionSelectionDialog() {
+    const selectedEventIds: string[] = this.getSelectedRows().map(event => event['id']);
+    this.dialog.open(ActionSelectionDialogComponent, {
+        width: '50%',
+        minHeight: '50%',
+        data: { eventIds: selectedEventIds, user: this.user }
+    }).afterClosed().subscribe(result => {
+        if (result) {
+            if (result.action === 'assign') {
+                this.assignSelectedEventsToMe(selectedEventIds, result.teamId);
+            } else if (result.action === 'archive') {
+                // Reset grid state
+                this.gridOptions.api.paginationGoToPage(0); // Go to first page
+                this.gridOptions.api.deselectAll(); // Clear selection
+                // Clear cache and reset datasource
+                this.gridOptions.api.setServerSideDatasource(null); // Temporarily clear datasource
+                setTimeout(() => {
+                    const newDatasource = this.createServerSideDatasource();
+                    this.gridOptions.api.setServerSideDatasource(newDatasource);
+                    // Force immediate cache purge and refresh
+                    this.gridOptions.api.refreshServerSide({ purge: true });
+                    this.gridOptions.api.redrawRows();
+                    console.log('Grid refreshed after archive, new datasource set');
+                }, 200); // Increased delay to ensure grid state is reset
             }
-        } else {
-            this.gridOptions.api.deselectAll();
         }
-    }
-
-    private assignSelectedEventsToMe(selectedEventIds: string[], teamId) {
-        this.eventService.assignAllToMe(selectedEventIds, teamId)
-            .subscribe(() => {
-                this.workflowSnackBar.showSuccessSnackBar(`${this.getSelectedRowsCount()} event(s) assigned to you`);
-                this.purgeServerSideCache();
-                this.gridOptions.api.deselectAll();
-            });
-    }
-
-    private getCurrentPageSize(): number {
-        let pageSize = this.gridOptions.api.paginationGetPageSize();
-        if (this.gridOptions.api.paginationGetCurrentPage() === this.gridOptions.api.paginationGetTotalPages() - 1) {
-            pageSize = this.gridOptions.api.paginationGetRowCount() % this.gridOptions.api.paginationGetPageSize();
-        }
-        return pageSize;
-    }
-
-    reloadEvents(): void {
-        this.gridOptions.api.refreshServerSide({purge: true});
-        this.gridOptions.api.deselectAll();
-    }
-
-    createServerSideDatasource(): IServerSideDatasource {
-        return {
-            getRows: (params) => {
-                const requestedPage = params.api.paginationGetCurrentPage() + 1;
-                const eventSort = this.buildEventSort(params.request.sortModel);
-                switch (this.eventView) {
-                    case EventViewEnum.PENDING_EVENTS:
-                        this.eventService.getPendingEvents(eventSort, requestedPage).subscribe(data => {
-                            if (data.events.length === 0 && !data.isUserHasTeam) {
-                                this.workflowSnackBar.showErrorSnackBarLongDisplay('The user does not belong to any Workflow Team');
-                            }
-                            params.success({rowData: data.events, rowCount: data.total});
-                        });
-                        break;
-                    case EventViewEnum.MY_EVENTS:
-                        this.eventService.getMyEvents(eventSort, requestedPage).subscribe(data => {
-                            if (data.events.length === 0) {
-                                this.workflowSnackBar.showErrorSnackBarLongDisplay('There is no events for which you have been assigned.');
-                            }
-                            params.success({rowData: data.events, rowCount: data.total});
-                        });
-                        break;
-                    case EventViewEnum.MY_TEAM_EVENTS:
-                        this.eventService.getMyTeamEvents(eventSort, requestedPage).subscribe(data => {
-                            params.success({rowData: data.events, rowCount: data.total});
-                        });
-                        break;
-                    case EventViewEnum.ARCHIVED_EVENTS:
-                        this.eventService.getArchivedEvents(eventSort, requestedPage).subscribe(data => {
-                            params.success({rowData: data.events, rowCount: data.total});
-                        });
-                        break;
-                }
-            },
-        };
-    }
-
-    private buildEventSort(sortModel: any): EventSorting | null {
-        if (sortModel.length) {
-            const eventSorting = new EventSorting(sortModel[0].colId, sortModel[0].sort);
-            this.eventService.setEventTableSortingMap(this.eventView, eventSorting);
-            return eventSorting;
-        }
-        this.eventService.setEventTableSortingMap(this.eventView, null);
-        return null;
-    }
-
-    onAddToMyEventsClick() {
-        const selectedEventIds: string[] = this.getSelectedRows().map(event => event['id']);
-        if (this.user.teams.length === 1) {
-            const team = this.user.teams[0];
-            this.assignSelectedEventsToMe(selectedEventIds, team.id);
-        } else {
-            this.dialog.open(EventAssignToMeModalComponent, {data: {teams: this.user.teams}})
-                .afterClosed()
-                .subscribe((teamId) => {
-                    if (teamId) {
-                        this.assignSelectedEventsToMe(selectedEventIds, teamId);
-                    }
-                });
-        }
-    }
-
-    public shouldEnableForPendingEvents(): boolean {
-        return this.eventView === EventViewEnum.PENDING_EVENTS;
-    }
-
-    public shouldEnableForMyEvents(): boolean {
-        return this.eventView === EventViewEnum.MY_EVENTS;
-    }
-
-    public shouldEnableForMyTeamEvents(): boolean {
-        return this.eventView === EventViewEnum.MY_TEAM_EVENTS;
-    }
-
-    openActionSelectionDialog() {
-        const selectedEventIds: string[] = this.getSelectedRows().map(event => event['id']);
-        this.dialog.open(ActionSelectionDialogComponent, {
-            width: '50%',
-            minHeight: '50%',
-            data: { eventIds: selectedEventIds, user: this.user }
-        });
-    }
+    });
 }
-action-selection-dialog.component.ts (New File)
-New Component: Created to handle the action selection dialog with options for "Add to My Events" and "Archive Event".
-typescript
+```
 
-Copy
-import {Component, Inject} from '@angular/core';
-import {MatDialog, MatDialogRef} from '@angular/material/dialog';
-import {EventAssignToMeModalComponent} from './event-assign-to-me-modal.component';
-import {EventArchiveDialogComponent} from './event-archive-dialog.component';
-import {MAT_DIALOG_DATA} from '@angular/material/dialog';
-import {User} from '../../../core/model/workflow/Team';
+Update the `purgeServerSideCache` method to use the same robust refresh logic, ensuring consistency across all grid refresh operations (e.g., single event archiving, assign to me).
 
-@Component({
-    selector: 'app-action-selection-dialog',
-    templateUrl: './action-selection-dialog.component.html',
-    styleUrls: ['./action-selection-dialog.component.scss']
-})
-export class ActionSelectionDialogComponent {
-    constructor(
-        public dialogRef: MatDialogRef<ActionSelectionDialogComponent>,
-        @Inject(MAT_DIALOG_DATA) public data: { eventIds: string[]; user: User },
-        private dialog: MatDialog
-    ) {}
+```typescript
+purgeServerSideCache(): void {
+    this.gridOptions.api.paginationGoToPage(0); // Reset to first page
+    this.gridOptions.api.setServerSideDatasource(null); // Clear datasource
+    setTimeout(() => {
+        const newDatasource = this.createServerSideDatasource();
+        this.gridOptions.api.setServerSideDatasource(newDatasource);
+        this.gridOptions.api.refreshServerSide({ purge: true });
+        this.gridOptions.api.redrawRows();
+        console.log('purgeServerSideCache executed');
+    }, 200);
+}
+```
 
-    onAddToMyEvents() {
-        this.dialog.open(EventAssignToMeModalComponent, { data: { teams: this.data.user.teams } })
-            .afterClosed()
-            .subscribe((teamId) => {
-                if (teamId) {
-                    // Logic to assign events to the selected team would be handled in the parent component
-                    this.dialogRef.close();
-                }
-            });
-    }
+### File to Modify: `createServerSideDatasource` in `all-events.component.ts`
 
-    onArchiveEvents() {
-        this.dialog.open(EventArchiveDialogComponent, {
-            width: '50%',
-            minHeight: '50%',
-            data: {
-                titleLabel: 'Archive Events',
-                message: `You want to archive the following events: ${this.data.eventIds.join(', ')}?`,
-                eventIds: this.data.eventIds,
-                confirmLabel: 'Validate',
-                cancelLabel: 'Cancel'
+Add logging to the `getRows` method to track when data is fetched and what data is received. This will help confirm whether the server is queried and if the response contains the correct (updated) data.
+
+```typescript
+createServerSideDatasource(): IServerSideDatasource {
+    return {
+        getRows: (params) => {
+            const requestedPage = params.api.paginationGetCurrentPage() + 1;
+            const eventSort = this.buildEventSort(params.request.sortModel);
+            console.log(`Fetching rows for view: ${this.eventView}, Page: ${requestedPage}, Sort:`, eventSort);
+            switch (this.eventView) {
+                case EventViewEnum.PENDING_EVENTS:
+                    this.eventService.getPendingEvents(eventSort, requestedPage).subscribe(data => {
+                        console.log('Pending events data received:', data);
+                        if (data.events.length === 0 && !data.isUserHasTeam) {
+                            this.workflowSnackBar.showErrorSnackBarLongDisplay('The user does not belong to any Workflow Team');
+                        }
+                        params.success({ rowData: data.events, rowCount: data.total });
+                    }, error => {
+                        console.error('Error fetching pending events:', error);
+                        params.fail();
+                    });
+                    break;
+                case EventViewEnum.MY_EVENTS:
+                    this.eventService.getMyEvents(eventSort, requestedPage).subscribe(data => {
+                        console.log('My events data received:', data);
+                        if (data.events.length === 0) {
+                            this.workflowSnackBar.showErrorSnackBarLongDisplay('There is no events for which you have been assigned.');
+                        }
+                        params.success({ rowData: data.events, rowCount: data.total });
+                    }, error => {
+                        console.error('Error fetching my events:', error);
+                        params.fail();
+                    });
+                    break;
+                case EventViewEnum.MY_TEAM_EVENTS:
+                    this.eventService.getMyTeamEvents(eventSort, requestedPage).subscribe(data => {
+                        console.log('My team events data received:', data);
+                        params.success({ rowData: data.events, rowCount: data.total });
+                    }, error => {
+                        console.error('Error fetching team events:', error);
+                        params.fail();
+                    });
+                    break;
+                case EventViewEnum.ARCHIVED_EVENTS:
+                    this.eventService.getArchivedEvents(eventSort, requestedPage).subscribe(data => {
+                        console.log('Archived events data received:', data);
+                        params.success({ rowData: data.events, rowCount: data.total });
+                    }, error => {
+                        console.error('Error fetching archived events:', error);
+                        params.fail();
+                    });
+                    break;
             }
-        }).afterClosed().subscribe(result => {
-            if (result) {
-                this.dialogRef.close();
-            }
-        });
-    }
-
-    onCancel() {
-        this.dialogRef.close();
-    }
+        },
+    };
 }
-action-selection-dialog.component.html (New File)
-New Template: Provides a simple selection interface for actions.
-html
+```
 
-Copy
-<button aria-label="Close dialog" mat-icon-button class="close-modal-button" [mat-dialog-close]="false">
-    <mat-icon>close</mat-icon>
-</button>
+### Explanation of Changes
+1. **Clearing Datasource First**:
+   - Setting `setServerSideDatasource(null)` before reinitializing the datasource ensures that the grid’s existing datasource is fully cleared, preventing any residual cache from interfering.
 
-<mat-toolbar-row class="mat-toolbar-row" fxlayout="row" fxlayoutalign="space-between center">
-    <span mat-dialog-title>SELECT ACTIONS</span>
-</mat-toolbar-row>
+2. **Increased Delay**:
+   - The delay in `setTimeout` is increased to 200ms to give the grid enough time to reset its state (pagination, selection, etc.) before setting the new datasource and triggering a refresh. This addresses potential race conditions where the grid tries to fetch data before it’s fully ready.
 
-<div mat-dialog-content>
-    <button mat-raised-button color="primary" (click)="onAddToMyEvents()">Add to My Events</button>
-    <button mat-raised-button color="warn" (click)="onArchiveEvents()" style="margin-left: 10px;">Archive Event</button>
-</div>
+3. **Explicit Cache Purge and Redraw**:
+   - `refreshServerSide({ purge: true })` ensures the server-side cache is cleared.
+   - `redrawRows()` forces the grid to update its UI, addressing cases where the data is fetched but the display lags.
 
-<div mat-dialog-actions align="end">
-    <button mat-stroked-button color="accent" (click)="onCancel()">Cancel</button>
-</div>
-event-archive-dialog.component.ts
-Updated Lines: Modified to handle multiple event IDs and integrated with the new action selection flow.
-Change: Updated to display all selected event IDs and handle multiple archives.
-typescript
+4. **Logging for Debugging**:
+   - Added console logs in `getRows` to track when the server is queried and what data is received. This will help identify if the server is returning old data or if the request isn’t triggered.
+   - Logs in `openActionSelectionDialog` and `purgeServerSideCache` confirm when the refresh operations are executed.
 
-Copy
-import {Component} from '@angular/core';
-import {ICellRendererAngularComp} from 'ag-grid-angular';
-import {ICellRendererParams} from 'ag-grid-enterprise';
-import {MatDialog, MatDialogRef} from '@angular/material/dialog';
-import {EventService} from '../../../core/services/workflow/event.service';
-import {WorkflowSnackbarComponent} from '../components/workflow-snackbar.component';
+5. **Error Handling in `getRows`**:
+   - Added error handling with `params.fail()` to ensure the grid handles server errors gracefully, preventing it from getting stuck with old data.
 
-@Component({
-    selector: 'app-workflow-event-actions-menu-renderer',
-    templateUrl: './event-archive-dialog.component.html',
-    styleUrls: ['./event-archive-dialog.component.scss']
-})
-export class EventArchiveDialogComponent implements ICellRendererAngularComp {
-    private params: ICellRendererParams;
-    public archivedEventForm: any; // Assuming form setup similar to existing code
-    public titleLabel: string;
-    public message: string;
-    public eventIds: string[];
-    public confirmLabel: string;
-    public cancelLabel: string;
-    public reasonOptions: any[] = []; // Populate as needed
-    public enableComment: boolean = true;
-    public textAreaLength: number = 100;
+### Why This Should Fix the Intermittent Issue
+- **Guaranteed Datasource Reset**: Clearing the datasource with `null` before setting a new one ensures no residual cache or state persists.
+- **Stabilized Timing**: The increased delay (200ms) accounts for AG-Grid’s async operations, ensuring the grid is ready to fetch new data.
+- **Consistent Refresh Logic**: Updating `purgeServerSideCache` ensures all refresh operations (single and multiple event archiving) use the same robust logic, reducing inconsistencies.
+- **Debugging Insight**: The logs will reveal whether the server is queried and if the response excludes archived events, helping pinpoint the issue if it persists.
 
-    constructor(
-        private dialog: MatDialog,
-        private eventService: EventService,
-        private workflowSnackBar: WorkflowSnackbarComponent,
-        public dialogRef: MatDialogRef<EventArchiveDialogComponent>
-    ) {}
+### Debugging the Intermittent Issue
+When testing, focus on the following to diagnose why it works sometimes and not others:
+1. **Check Console Logs**:
+   - Look for logs from `getRows` (e.g., `Fetching rows for view: PENDING_EVENTS, Page: 1`) and the corresponding `data received` logs.
+   - Verify that the `data.events` array excludes the archived events. If it includes them, the issue is server-side (the backend API is not filtering archived events correctly).
 
-    agInit(params: ICellRendererParams) {
-        this.params = params;
-        this.titleLabel = params.data.titleLabel || 'Archive Events';
-        this.message = params.data.message || '';
-        this.eventIds = params.data.eventIds || [params.data.eventId];
-        this.confirmLabel = params.data.confirmLabel || 'Validate';
-        this.cancelLabel = params.data.cancelLabel || 'Cancel';
-        // Initialize form logic here if needed
-    }
+2. **Inspect Network Requests**:
+   - Open your browser’s developer tools and monitor the HTTP request to `/gateway/workflow/api/events/pending?page=1` (or the relevant endpoint for your `eventView`).
+   - Check the response body to ensure it excludes the archived events. If the response is correct but the grid shows old data, the issue is client-side (grid cache or rendering).
 
-    refresh(): boolean {
-        return false;
-    }
+3. **Cache State**:
+   - After archiving, log the grid’s cache state to confirm it’s cleared:
+     ```typescript
+     setTimeout(() => {
+         const newDatasource = this.createServerSideDatasource();
+         this.gridOptions.api.setServerSideDatasource(newDatasource);
+         this.gridOptions.api.refreshServerSide({ purge: true });
+         this.gridOptions.api.redrawRows();
+         console.log('Grid refreshed after archive, new datasource set');
+         console.log('Cache blocks:', this.gridOptions.api.getCacheBlockState());
+     }, 200);
+     ```
+   - If the cache blocks are not empty or contain old data, it indicates a caching issue.
 
-    validate() {
-        if (this.archivedEventForm.valid) {
-            this.eventService.archiveEvents(this.eventIds, this.archivedEventForm.value.reason, this.archivedEventForm.value.comment)
-                .subscribe(() => {
-                    this.workflowSnackBar.showSuccessSnackBar(`${this.eventIds.length} event(s) archived`);
-                    this.dialogRef.close(true);
-                });
-        }
-    }
-}
-Notes
-CSS: You mentioned you will add the CSS code. If you need assistance with styling to match the existing UI, let me know, and I can provide suggestions.
-Form Logic: The archivedEventForm in event-archive-dialog.component.ts is assumed to be set up similarly to the existing single-event version. You may need to implement the form initialization in ngOnInit if not already present.
-Service Calls: The eventService.archiveEvents method is assumed to handle multiple event IDs. Adjust the service call as per your backend API.
-This setup ensures a consistent UI and functionality for handling multiple events with the Actions button.
+4. **Test Timing Variations**:
+   - If the 200ms delay doesn’t resolve the issue, try increasing it to 500ms or removing it entirely to see if timing is the culprit:
+     ```typescript
+     this.gridOptions.api.setServerSideDatasource(null);
+     const newDatasource = this.createServerSideDatasource();
+     this.gridOptions.api.setServerSideDatasource(newDatasource);
+     this.gridOptions.api.refreshServerSide({ purge: true });
+     this.gridOptions.api.redrawRows();
+     console.log('Grid refreshed after archive, no delay');
+     ```
+
+5. **Server-Side Verification**:
+   - Ensure the `archiveMultipleEvents` method in `event.service.ts` is correctly updating the event statuses to `ARCHIVED_MANUALLY` or `ARCHIVED_AUTOMATICALLY`.
+   - Verify that `getPendingEvents` (or the relevant method for your `eventView`) filters out events with these statuses. If the server returns archived events, the backend logic needs adjustment.
+
+### Testing the Fix
+- Archive multiple events and check if the grid consistently shows updated data (archived events removed).
+- Repeat the test multiple times to confirm the issue no longer occurs intermittently.
+- Compare the grid data with a manual reload to ensure consistency.
+- Monitor console logs for `Fetching rows`, `data received`, and `Grid refreshed` messages.
+- Check network requests to confirm the server returns the correct data.
+
+### If the Issue Persists
+If the problem still occurs intermittently, please provide:
+- **Console Logs**: Share the logs from `getRows` (e.g., `Fetching rows for view: PENDING_EVENTS` and `Pending events data received`), including the `data` object.
+- **Network Request Details**: Provide the request URL, parameters, and response body for the endpoint called after archiving (e.g., `/gateway/workflow/api/events/pending?page=1`).
+- **Cache State**: Share the output of `this.gridOptions.api.getCacheBlockState()` after archiving.
+- **Behavior Details**: Note any patterns (e.g., does it fail when archiving many events vs. a few, or on specific `eventView` values like `PENDING_EVENTS` vs. `MY_EVENTS`).
+
+### Additional Consideration
+Your previous conversation (from memory) mentioned that single event archiving reloads correctly, but multiple event archiving required manual refresh. The current solution aligns the multiple event archiving behavior with the single event approach by ensuring `purgeServerSideCache` and datasource resets are consistent. If the backend endpoint `/gateway/workflow/api/events/pending` (or similar) is slow or inconsistent, it could contribute to the issue. If logs show delayed or incorrect server responses, consider optimizing the backend or adding a loading indicator to prevent user confusion.
+
+This solution should stabilize the grid refresh behavior, ensuring the grid consistently shows updated data after archiving multiple events, matching the manual reload behavior.
