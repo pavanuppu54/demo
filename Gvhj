@@ -1,5 +1,5 @@
 The intermittent issue where the grid sometimes shows updated data after archiving multiple events and sometimes shows old data suggests a timing or race condition in AG-Grid's server-side row model, or possibly an issue with the server response not being consistently processed. Since manual reloading consistently fetches the correct data, the problem likely lies in how the grid's cache is cleared or how the datasource refresh is handled. The previous solution used `setServerSideDatasource`, pagination reset, and a delayed `refreshServerSide` to force a refresh, but the inconsistency indicates that the grid may not always trigger a new server request or process the response correctly.
-
+hi
 Based on the code provided and the issue's intermittent nature, the solution needs to:
 1. Ensure the grid's cache is fully cleared and a new server request is guaranteed.
 2. Handle potential async timing issues more robustly.
