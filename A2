@@ -1,40 +1,22 @@
-s.isEditMode) {
-      this.service.getById(this.id).subscribe(emp =>
-        this.employeeForm.patchValue(emp)
-      );
-    }
-  }
+Here’s a clean and professional Jira comment you can add for feedback:
 
-  onSubmit() {
-    if (this.isEditMode) {
-      this.service.update(this.id, this.employeeForm.value).subscribe(() =>
-        this.router.navigate(['/'])
-      );
-    } else {
-      this.service.create(this.employeeForm.value).subscribe(() =>
-        this.router.navigate(['/'])
-      );
-    }
-  }
-}
+Hello Sameer,
 
+I have observed the following behavior regarding the New Beneficiary fields in both SR Off and SR On modes:
 
----
+SR Off Mode:
 
-employee-form.component.html
+1. If the New Beneficiary is amended, the details are visible in the Consent Control screen after passing through the LC Consent screen.
+2. If the New Beneficiary is not amended, the details are not visible in the Consent Control screen.
 
-<h3>{{ isEditMode ? 'Edit' : 'Add' }} Employee</h3>
-<form [formGroup]="employeeForm" (ngSubmit)="onSubmit()">
-  <label>Name:</label>
-  <input formControlName="name"><br>
+SR On Mode:
 
-  <label>Email:</label>
-  <input formControlName="email"><br>
+1. If the New Beneficiary is amended, the details are visible in the Consent Control screen.
+2. If the New Beneficiary is not amended, the details are not visible in the Consent Control screen.
 
-  <label>Designation:</label>
-  <input formControlName="designation"><br>
+So, the behavior is identical in both SR On and SR Off modes.
 
-  <label>Salary:</label>
+Kindly check this scenario and confirm whether this is the expected behavior.  <label>Salary:</label>
   <input formControlName="salary" type="number"><br><br>
 
   <button type="submit">{{ isEditMode ? 'Update' : 'Create' }}</button>
