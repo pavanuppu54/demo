@@ -1,40 +1,14 @@
-Thanks for sharing the error. From what you've pasted, you're facing Angular template binding issues, missing module imports, and router-outlet/component recognition issues. Let’s fix everything step-by-step. I’ll also explain why it happens.
+Hello Ankur,
 
+As we discussed recently on the call, these are the things we discussed and confirmed:
 
----
+- First Beneficiary details will not be stored in the DB when the user saves the ELT New transaction. So, when we open the ELT Update screen, the fields are not coming. As this is an existing behaviour, the First Beneficiary fields will come from the ELC transaction table. Even if we edit the values, they will not be stored anywhere.
 
-✅ FIRST, WHAT’S GOING WRONG?
+- The First Beneficiary detail fields are made editable.
 
-1. router-outlet is not a known element
+- As part of backward compatibility, we made the Town, Post and Country fields editable. However, the First Beneficiary details will not be stored in the DB when we save the ELT transaction.
 
-> This means Angular doesn't know what <router-outlet> is.
-
-
-
-Cause: You didn’t import the RouterModule in AppModule.
-
-
----
-
-2. Can't bind to 'formGroup'
-
-> Angular doesn’t recognize [formGroup] in your HTML.
-
-
-
-Cause: You didn’t import ReactiveFormsModule in your AppModule.
-
-
----
-
-3. ngFor not working in *ngFor
-
-> Angular doesn’t recognize *ngFor.
-
-
-
-Cause: You didn’t import CommonModule OR forgot to declare components correctly.
-
+Thank you.
 
 ---
 
